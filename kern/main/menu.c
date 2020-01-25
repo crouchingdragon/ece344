@@ -429,6 +429,9 @@ cmd_flagsmenu(int n, char **a)
 	(void)a;
 
 	showmenu("OS/161 Debug flags", flagsmenu);
+	//kprintf("\n");
+	kprintf("Current value of dbflags is %x", dbflags); 
+	kprintf("\n");
 	return 0;
 }
 
