@@ -66,7 +66,7 @@ boot(void)
 	kprintf("%s", harvard_copyright);
 	kprintf("\n");
 
-	kprintf("Im too good for you? %s (%s #%d)\n", 
+	kprintf("AHHHHHHHHHHHH!!!!!  system version %s (%s #%d)\n", 
 		GROUP_VERSION, buildconfig, buildversion);
 	kprintf("\n");
 
