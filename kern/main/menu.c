@@ -380,6 +380,7 @@ showmenu(const char *name, const char *x[])
 static const char *opsmenu[] = {
 	"[s]       Shell                     ",
 	"[p]       Other program             ",
+	"[dbflags] Debug flags               ",
 	"[mount]   Mount a filesystem        ",
 	"[unmount] Unmount a filesystem      ",
 	"[bootfs]  Set \"boot\" filesystem     ",
@@ -400,6 +401,34 @@ cmd_opsmenu(int n, char **a)
 	(void)a;
 
 	showmenu("OS/161 operations menu", opsmenu);
+	return 0;
+}
+
+//*************** FLAGS MENU ********************
+static const char *flagsmenu[] = {
+	"[df 1 on/off]     DB_LOCORE ",        
+    "[df 2 on/off]     DB_SYSCALL ",        
+    "[df 3 on/off]     DB_INTERRUPT ",      
+    "[df 4 on/off]     DB_DEVICE  ",       
+    "[df 5 on/off]     DB_THREADS   ",     
+    "[df 6 on/off]     DB_VM          ",  
+	"[df 7 on/off]     DB_EXEC",
+	"[df 8 on/off]     DB_VFS",
+	"[df 9 on/off]     DB_SFS",
+	"[df 10 on/off]    DB_NET",
+	"[df 11 on/off]    DB_NETFS",
+	"[df 12 on/off]    DB_KMALLOC",
+	NULL
+};
+
+static
+int
+cmd_flagsmenu(int n, char **a)
+{
+	(void)n;
+	(void)a;
+
+	showmenu("OS/161 Debug flags", flagsmenu);
 	return 0;
 }
 
@@ -481,6 +510,7 @@ static struct {
 	{ "help",	cmd_mainmenu },
 	{ "?o",		cmd_opsmenu },
 	{ "?t",		cmd_testmenu },
+	{ "dbflags", cmd_flagsmenu},
 
 	/* operations */
 	{ "s",		cmd_shell },
