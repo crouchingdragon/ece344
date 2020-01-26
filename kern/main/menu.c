@@ -430,8 +430,50 @@ cmd_flagsmenu(int n, char **a)
 
 	showmenu("OS/161 Debug flags", flagsmenu);
 	//kprintf("\n");
-	kprintf("Current value of dbflags is %x", dbflags); 
+	kprintf("Current value of dbflags is 0x%x", dbflags); 
 	kprintf("\n");
+	return 0;
+}
+
+// Possible issue: May be annoying to manually update this if we need to add more flags later
+u_int32_t flag_values[12] = {DB_LOCORE, DB_SYSCALL, DB_INTERRUPT, DB_DEVICE, DB_THREADS, DB_VM, DB_EXEC, DB_VFS, DB_SFS, DB_NET, DB_NETFS, DB_KMALLOC};
+
+static
+int
+cmd_setflags(int nargs, char **args)
+{
+	/* 
+	 * POSSIBLE ISSUES (things that were not clear to me from specs):
+	 * If you just type "df 1 on" or something, before dbflags menu is up, this code will change the dbflags value anyways (able to set flags
+	 * whether you saw the menu first or not)
+	 * messing up the first word (df) will cause a command error, but not a flags error (won't ever go into this function)
+	 */
+	int index = atoi(args[1]);
+	int on = strcmp(args[2], "on");
+	int off = strcmp(args[2], "off");
+
+	// Too many or too few arguments
+	// if (nargs != 3) return 1; //sends to error protocol (I think this is where is should go? Otherwise add to below case)
+
+	//FIXME: THIS BREAKS IF YOU SET THE SECOND ARGUMENT TO A LARGE NUMBER OF SPACES
+	// 4 CHECKS: 1) Wrong number of arguments 2) invalid on/off strings 3) index is out of bounds 4) index was inputted as a char and not an int
+	if ((nargs != 3) || ((on != 0 ) && (off != 0)) || !((index > 0) && (index < 13)) || ((index == 0) && (args[1] != "0"))) {
+		kprintf("Usage: df nr on/off\n");
+		return 0;
+	}
+
+	// Sets the arg[1]th bit to 0
+	if (off == 0) {
+		dbflags = dbflags & ~(flag_values[index-1]);
+		return 0;
+	}
+
+	// Sets the arg[1]th bit to 1
+	if (on == 0) {
+		dbflags = dbflags | flag_values[index-1];
+		return 0;
+	}
+	// if for some reason it doen't go into any of the ifs ?
 	return 0;
 }
 
@@ -514,6 +556,9 @@ static struct {
 	{ "?o",		cmd_opsmenu },
 	{ "?t",		cmd_testmenu },
 	{ "dbflags", cmd_flagsmenu},
+
+	/*Flag menu operations*/
+	{"df", cmd_setflags},
 
 	/* operations */
 	{ "s",		cmd_shell },

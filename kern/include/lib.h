@@ -37,6 +37,11 @@
 /*
  * Bit flags for DEBUG()
  */
+/* The hex goes through the sequence 1, 2, 4, 8, 10, 20, 40, 80, etc.
+ * A bit gets shifted with each next number
+ * This means up to 12 debug flags can be running at a single time with 12 bits enabled (as below)
+ * We can extend this to up to 32 bits since that's the max number of bits dbflags can take (32 flags at once)
+ */
 #define DB_LOCORE      0x001
 #define DB_SYSCALL     0x002
 #define DB_INTERRUPT   0x004
@@ -49,7 +54,6 @@
 #define DB_NET         0x200
 #define DB_NETFS       0x400
 #define DB_KMALLOC     0x800
-#define DEFAULT        0x0
 
 extern u_int32_t dbflags;
 
