@@ -448,6 +448,13 @@ cmd_setflags(int nargs, char **args)
 	 * whether you saw the menu first or not)
 	 * messing up the first word (df) will cause a command error, but not a flags error (won't ever go into this function)
 	 */
+	
+	// Has to check here first. If it has wrong number of args it tries to look for an arg that doesn't exist
+	if (nargs !=3){
+		kprintf("Usage: df nr on/off\n");
+		return 0;			
+	}
+
 	int index = atoi(args[1]);
 	int on = strcmp(args[2], "on");
 	int off = strcmp(args[2], "off");
@@ -455,9 +462,8 @@ cmd_setflags(int nargs, char **args)
 	// Too many or too few arguments
 	// if (nargs != 3) return 1; //sends to error protocol (I think this is where is should go? Otherwise add to below case)
 
-	//FIXME: THIS BREAKS IF YOU SET THE SECOND ARGUMENT TO A LARGE NUMBER OF SPACES
 	// 4 CHECKS: 1) Wrong number of arguments 2) invalid on/off strings 3) index is out of bounds 4) index was inputted as a char and not an int
-	if ((nargs != 3) || ((on != 0 ) && (off != 0)) || !((index > 0) && (index < 13)) || ((index == 0) && (args[1] != "0"))) {
+	if (((on != 0 ) && (off != 0)) || !((index > 0) && (index < 13)) || ((index == 0) && (args[1] != "0"))) {
 		kprintf("Usage: df nr on/off\n");
 		return 0;
 	}
