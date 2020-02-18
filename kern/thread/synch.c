@@ -237,7 +237,7 @@ void
 cv_wait(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	assert(lock != NULL && cv != NULL && !in_interrupt);
+	assert(lock != NULL && lock_do_i_hold(lock) && cv != NULL && !in_interrupt);
 
 	lock_release(lock);
 	int spl;
@@ -246,23 +246,23 @@ cv_wait(struct cv *cv, struct lock *lock)
 	splx(spl);
 	lock_acquire(lock);
 
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	//(void)cv;    // suppress warning until code gets written
+	//(void)lock;  // suppress warning until code gets written
 }
 
 void
 cv_signal(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	assert(lock != NULL && cv != NULL && !in_interrupt);
+	assert(lock != NULL && lock_do_i_hold(lock) && cv != NULL && !in_interrupt);
 
 	int spl;
 	spl = splhigh();
-	thread_wakeup_one(cv); // might wake more than 1
+	thread_wakeup_one(cv);
 	splx(spl);
 
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	//(void)cv;    // suppress warning until code gets written
+	//(void)lock;  // suppress warning until code gets written
 }
 
 void
@@ -275,6 +275,6 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	while (thread_hassleepers(cv) != 0) thread_wakeup(cv);
 	splx(spl);
 
-	(void)cv;    // suppress warning until code gets written
-	(void)lock;  // suppress warning until code gets written
+	//(void)cv;    // suppress warning until code gets written
+	//(void)lock;  // suppress warning until code gets written
 }
