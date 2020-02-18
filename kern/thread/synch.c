@@ -115,8 +115,7 @@ lock_create(const char *name)
 	}
 	
 	// add stuff here as needed
-	lock->held = 0; // free when it is created
-	lock->owner = NULL;
+	lock->held = 0; // free when it is created 
 	
 	/* Lock should also have a value?
 	 * should hold the state of the lock at any instance in time
@@ -156,13 +155,11 @@ lock_acquire(struct lock *lock)
 
 	assert(in_interrupt==0); // makes sure we're not in the middle of an interrupt?
 	
-	// held by some other thread
-	// if current thread has lock already
-	// 
 	spl = splhigh();
-	while (lock->held && lock->owner != curthread) thread_sleep(lock);
+	while (lock->held);
 	lock->held = 1;
-	lock->owner = curthread;
+	// set owner to current thread curthread
+	//lock->owner = curthread;
 
 	splx(spl);
 	//(void)lock;  // suppress warning until code gets written
@@ -172,13 +169,12 @@ void
 lock_release(struct lock *lock)
 {
 	// Write this
+	//
 	int spl;
 	assert(lock != NULL);
 	assert(in_interrupt==0);
 	spl = splhigh();
 	lock->held = 0;
-	lock->owner = NULL;
-	thread_wakeup(lock);
 	splx(spl);
 
 	//(void)lock;  // suppress warning until code gets written
@@ -188,12 +184,10 @@ int
 lock_do_i_hold(struct lock *lock)
 {
 	// Write this
-	if (lock->owner == curthread) return 1;
-	return 0;
 
-	//(void)lock;  // suppress warning until code gets written
+	(void)lock;  // suppress warning until code gets written
 
-	//return 1;    // dummy until code gets written
+	return 1;    // dummy until code gets written
 }
 
 ////////////////////////////////////////////////////////////
