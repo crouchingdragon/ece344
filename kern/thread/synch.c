@@ -115,6 +115,16 @@ lock_create(const char *name)
 	}
 	
 	// add stuff here as needed
+	lock->held = 0; // free when it is created 
+	
+	/* Lock should also have a value?
+	 * should hold the state of the lock at any instance in time
+	 * states: available/unlocked/free or acquired/locked/held
+	 * other possible info to store (but must be hidden from the user of the lock):
+	 * which thread holds the lock
+	 * or a queue for ordering lock acquisition
+	*/
+
 	
 	return lock;
 }
@@ -125,6 +135,7 @@ lock_destroy(struct lock *lock)
 	assert(lock != NULL);
 
 	// add stuff here as needed
+	// free everything you add
 	
 	kfree(lock->name);
 	kfree(lock);
@@ -134,16 +145,39 @@ void
 lock_acquire(struct lock *lock)
 {
 	// Write this
+	// could simply disable interrupts (splh turns interrupts off)
+	// set the lock to held
+	// set the owner to the current thread
+	// only use a spinlock with a preemptive sceduler
+	
+	int spl;
+	assert(lock != NULL); //makes sure we actually have a lock
 
-	(void)lock;  // suppress warning until code gets written
+	assert(in_interrupt==0); // makes sure we're not in the middle of an interrupt?
+	
+	spl = splhigh();
+	while (lock->held);
+	lock->held = 1;
+	// set owner to current thread curthread
+	lock->owner = curthread;
+
+	splx(spl);
+	//(void)lock;  // suppress warning until code gets written
 }
 
 void
 lock_release(struct lock *lock)
 {
 	// Write this
+	//
+	int spl;
+	assert(lock != NULL);
+	assert(in_interrupt==0);
+	spl = splhigh();
+	lock->held = 0;
+	splx(spl);
 
-	(void)lock;  // suppress warning until code gets written
+	//(void)lock;  // suppress warning until code gets written
 }
 
 int

@@ -23,10 +23,10 @@ typedef enum {
 } threadstate_t;
 
 /* Global variable for the thread currently executing at any given time. */
-struct thread *curthread;
+struct thread *curthread; // address of the current thread
 
 /* Table of sleeping threads. */
-static struct array *sleepers;
+static struct array *sleepers; // array of adresses of sleeping threads
 
 /* List of dead threads to be disposed of. */
 static struct array *zombies;
@@ -53,11 +53,14 @@ static
 struct thread *
 thread_create(const char *name)
 {
+	// allocating the size of one thread on the heap
 	struct thread *thread = kmalloc(sizeof(struct thread));
+	// check to make sure the heap memory was able to be allocated
 	if (thread==NULL) {
 		return NULL;
 	}
-	thread->t_name = kstrdup(name);
+	// kstrdup returns a pointer to a new string which is a duplicate of the name string
+	thread->t_name = kstrdup(name); // thread name may not be unique
 	if (thread->t_name==NULL) {
 		kfree(thread);
 		return NULL;
@@ -85,7 +88,8 @@ static
 void
 thread_destroy(struct thread *thread)
 {
-	assert(thread != curthread);
+	assert(thread != curthread); // continues execution if condition is true
+								 // shoots error if not true
 
 	// If you add things to the thread structure, be sure to dispose of
 	// them here or in thread_exit.
@@ -134,7 +138,7 @@ void
 thread_killall(void)
 {
 	int i, result;
-
+	// interrupts are off if the current set priority level is high
 	assert(curspl>0);
 
 	/*
@@ -206,7 +210,7 @@ thread_bootstrap(void)
 	 * which can't be freed.
 	 */
 
-	/* Initialize the first thread's pcb */
+	/* Initialize the first thread's pcb (process control block)*/
 	md_initpcb0(&me->t_pcb);
 
 	/* Set curthread */
