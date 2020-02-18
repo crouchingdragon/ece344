@@ -141,6 +141,7 @@ lock_destroy(struct lock *lock)
 	kfree(lock);
 }
 
+// comment
 void
 lock_acquire(struct lock *lock)
 {
