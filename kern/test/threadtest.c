@@ -10,6 +10,7 @@
 #define NTHREADS  8
 
 static struct semaphore *tsem = NULL;
+// static struct lock *tsem = NULL;
 
 static
 void
@@ -36,6 +37,7 @@ loudthread(void *junk, unsigned long num)
 		putch(ch);
 	}
 	V(tsem);
+	// lock_release(tsem);
 }
 
 /*
@@ -62,6 +64,7 @@ quietthread(void *junk, unsigned long num)
 	putch(ch);
 
 	V(tsem);
+	// lock_release(tsem);
 }
 
 static
@@ -84,6 +87,7 @@ runthreads(int doloud)
 
 	for (i=0; i<NTHREADS; i++) {
 		P(tsem);
+		// lock_acquire(tsem);
 	}
 }
 

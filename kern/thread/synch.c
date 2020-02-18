@@ -258,7 +258,7 @@ cv_signal(struct cv *cv, struct lock *lock)
 
 	int spl;
 	spl = splhigh();
-	thread_wakeup_one(cv);
+	thread_wakeup(cv);
 	splx(spl);
 
 	//(void)cv;    // suppress warning until code gets written
@@ -271,7 +271,7 @@ cv_broadcast(struct cv *cv, struct lock *lock)
 	// Write this
 	assert(lock != NULL && lock_do_i_hold(lock) && cv != NULL && !in_interrupt);
 	int spl;
-	spl = splh();
+	spl = splhigh();
 	while (thread_hassleepers(cv) != 0) thread_wakeup(cv);
 	splx(spl);
 
