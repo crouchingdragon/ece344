@@ -153,20 +153,22 @@ lock_acquire(struct lock *lock)
 	
 	int spl;
 	assert(lock != NULL); //makes sure we actually have a lock
-
 	assert(in_interrupt==0); // makes sure we're not in the middle of an interrupt?
 	
 	// held by some other thread
 	// if current thread has lock already
-	// 
 	spl = splhigh();
+	
 	while (lock->held && lock->owner != curthread) thread_sleep(lock);
 	lock->held = 1;
 	lock->owner = curthread;
 
 	splx(spl);
-	//printf("haiiiiiiiii me is here ");
+
+	
 	//(void)lock;  // suppress warning until code gets written
+
+
 }
 
 void
@@ -182,19 +184,21 @@ lock_release(struct lock *lock)
 	thread_wakeup(lock);
 	splx(spl);
 
-	//(void)lock;  // suppress warning until code gets written
+	// (void)lock;  // suppress warning until code gets written
 }
 
 int
 lock_do_i_hold(struct lock *lock)
 {
 	// Write this
+	assert(lock != NULL); // do I need this?
+	// does this also need to be atomic?
 	if (lock->owner == curthread) return 1;
 	return 0;
 
-	//(void)lock;  // suppress warning until code gets written
+	// (void)lock;  // suppress warning until code gets written
 
-	//return 1;    // dummy until code gets written
+	// return 1;    // dummy until code gets written
 }
 
 ////////////////////////////////////////////////////////////
@@ -245,6 +249,7 @@ cv_wait(struct cv *cv, struct lock *lock)
 	spl = splhigh();
 	thread_sleep(cv);
 	splx(spl);
+	// could there be a context switch here or some weird stuff?
 	lock_acquire(lock);
 
 	//(void)cv;    // suppress warning until code gets written
