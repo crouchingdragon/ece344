@@ -164,13 +164,17 @@ lock_acquire(struct lock *lock)
 	lock->owner = curthread;
 
 	splx(spl);
-	// (void)lock;  // suppress warning until code gets written
+
+	
+	//(void)lock;  // suppress warning until code gets written
+
+
 }
 
 void
 lock_release(struct lock *lock)
 {
-	// Write this
+	//Write this
 	int spl;
 	assert(lock != NULL);
 	assert(in_interrupt==0);
