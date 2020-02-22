@@ -17,6 +17,13 @@
 #include <test.h>
 #include <thread.h>
 #include "catmouse.h"
+#include <synch.h>
+
+// struct lock *bowl1;
+// struct lock *bowl2;
+
+// int catcount = 0;
+// int mousecount = 0;
 
 /*
  * 
@@ -104,6 +111,8 @@ catmouselock(int nargs,
              char ** args)
 {
         int index, error;
+        // bowl1 = lock_create("bowl1");
+        // bowl2 = lock_create("bowl2");
    
         /*
          * Start NCATS catlock() threads.
@@ -161,6 +170,10 @@ catmouselock(int nargs,
         
         while (thread_count() > 1)
                 thread_yield();
+
+        // destroy locks
+        // lock_destroy(bowl1);
+        // lock_destroy(bowl2);
 
         (void)nargs;
         (void)args;

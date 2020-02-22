@@ -3,6 +3,10 @@
  *
  * You can use any synchronization primitives available to solve
  * the stoplight problem in this file.
+
+ - Could have 2 keys: North_South Light, West_East Light
+ - 3 condition variables: left, right, straight
+
  */
 
 
@@ -16,6 +20,7 @@
 #include <lib.h>
 #include <test.h>
 #include <thread.h>
+#include <synch.h>
 
 
 /*
@@ -77,7 +82,7 @@ gostraight(unsigned long cardirection,
         /*
          * Avoid unused variable warnings.
          */
-        
+
         (void) cardirection;
         (void) carnumber;
 }
@@ -235,6 +240,7 @@ createcars(int nargs,
 
         while (thread_count() > 1)
                 thread_yield();
+
 
 	(void)message;
         (void)nargs;

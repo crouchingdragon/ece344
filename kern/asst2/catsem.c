@@ -22,15 +22,17 @@
 #include <synch.h>
 
 // access controls
-struct semaphore *cat_or_mouse;
+// struct semaphore *cat_or_mouse;
+struct semaphore *enter;
+struct semaphore *exit;
 struct semaphore *bowl_access;
 
 // is the bowl being eaten from (1 means yes, 0 means no)
 int bowl1 = 0;
 int bowl2 = 0;
 
-// iteration number
-int it = 0;
+int catcount = 0;
+int mousecount = 0;
 
 /*
  * 
@@ -61,38 +63,43 @@ catsem(void * unusedpointer,
         /*
          * Avoid unused variable warnings.
          */
-
-
-        /* 
-         * a thread was created/forked from catmousesem
-         * now let this thread try and access the food/semaphore
-         * if it can't (2 threads already eating), sleep
-         * else if a mouse thread is eating, sleep
-        */
-
-        int meal;
+        int meal = 0;
+        int which = 0;
         // while the thread has not eaten all its meals yet
-        for (meal = 0; meal < NMEALS; meal++) {
-                // If a cat is eating, it won't be able to acquire the semaphore
-                P(cat_or_mouse);
-                // If there are 2 things eating, it won't be able to acquire the other semaphore
-                P(bowl_access);
-                // critical region
-                if (bowl1) {
-                        catmouse_eat("cat", catnumber, 2, it);
-                        bowl2 = 1;
-                }
-                else if (bowl2) {
-                        catmouse_eat("cat", catnumber, 1, it);
-                        bowl1 = 1; // bowl1 now occupied
-                }
-                it++;
-                V(bowl_access);
-                V(cat_or_mouse);
-                bowl1 = 0;
-                bowl2 = 0;
-        }
+        while (meal < NMEALS) {
+            while (mousecount > 0) thread_yield();
+            
+            P(enter);
+            
+            P(bowl_access);
+            catcount++;
 
+            V(enter);
+
+            if (bowl1 == 0) {
+                    bowl1 = 1;
+                    which = 1;
+                    catmouse_eat("cat", catnumber, which, meal);
+                }
+            else if (bowl2 == 0) {
+                    bowl2 = 1; // bowl2 now occupied
+                    which = 2;
+                    catmouse_eat("cat", catnumber, which, meal);
+                }
+            
+            meal++;
+
+            P(exit);
+
+            V(bowl_access);
+
+            catcount--;
+            if (which == 1) bowl1 = 0;
+            else if (which == 2) bowl2 = 0;
+            which = 0;
+            V(exit);
+            
+        }
 
         (void) unusedpointer;
         (void) catnumber;
@@ -124,33 +131,43 @@ mousesem(void * unusedpointer,
          * Avoid unused variable warnings.
          */
 
-        // if no one is there, go ahead
-        // or if there is one mouse eating, go ahead
-        // if there is one cat eating, wait
-        // or if there are two things eating (no matter what they are), wait
-
-        int meal;
-
+       int meal = 0;
+       int which = 0;
         // while the thread has not eaten all its meals yet
-        for (meal = 0; meal < NMEALS; meal++) {
-                // If a cat is eating, it won't be able to acquire the semaphore
-                P(cat_or_mouse);
-                // If there are 2 things eating, it won't be able to acquire the other semaphore
-                P(bowl_access);
-                // critical region
-                if (bowl1) {
-                        catmouse_eat("mouse", mousenumber, 2, it);
-                        bowl2 = 1;
+        while (meal < NMEALS) {
+            while (catcount > 0) thread_yield();
+            
+            P(enter);
+
+            P(bowl_access);
+            mousecount++;
+
+            V(enter);
+            
+            if (bowl1 == 0) {
+                    bowl1 = 1;
+                    which = 1;
+                    catmouse_eat("mouse", mousenumber, which, meal);
                 }
-                else if (bowl2) {
-                        catmouse_eat("mouse", mousenumber, 1, it);
-                        bowl1 = 1; // bowl1 now occupied
+            else if (bowl2 == 0) {
+                    bowl2 = 1; // bowl2 now occupied
+                    which = 2;
+                    catmouse_eat("mouse", mousenumber, which, meal);
                 }
-                it++;
-                V(bowl_access);
-                V(cat_or_mouse);
-                bowl1 = 0;
-                bowl2 = 0;
+
+            meal++;
+
+            P(exit);
+
+            V(bowl_access);
+
+            mousecount--;
+            if (which == 1) bowl1 = 0;
+            else if (which == 2) bowl2 = 0;
+            which = 0;
+
+            V(exit);
+
         }
 
         (void) unusedpointer;
@@ -178,7 +195,9 @@ catmousesem(int nargs,
             char ** args)
 {
         int index, error;
-        cat_or_mouse = sem_create("cat_or_mouse", 1);
+        // cat_or_mouse = sem_create("cat_or_mouse", 1);
+        enter = sem_create("enter", 1);
+        exit = sem_create("exit", 1);
         bowl_access = sem_create("bowl_access", 2);
 
 
@@ -238,6 +257,12 @@ catmousesem(int nargs,
 
         while (thread_count() > 1)
                 thread_yield();
+
+        // destroy semaphores
+        // sem_destroy(cat_or_mouse);
+        sem_destroy(enter);
+        sem_destroy(exit);
+        sem_destroy(bowl_access);
 
         (void)nargs;
         (void)args;
