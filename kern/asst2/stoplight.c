@@ -21,40 +21,31 @@
 #include <test.h>
 #include <thread.h>
 #include <synch.h>
-#include <queue.h>
-#include <curthread.h>
-
 
 /*
  * Number of cars created.
  */
 
 #define NCARS 20
+#define STRAIGHT 2
+#define RIGHT 1
+#define LEFT 3
 
-// struct lock *intersection[4];
-// struct cv *right_of_way[4];
+#define goS 1
+#define goR 2
+#define goL 3
 
-struct queue *north_south_light;
-struct queue *west_east_light;
+static struct lock *SWlock;
+static struct lock *SElock;
+static struct lock *NWlock;
+static struct lock *NElock;
 
-struct lock *light;
-struct cv *not_approaching;
-
-// struct lock *NW;
-// struct lock *NE;
-// struct lock *SW;
-// struct lock *SE;
-
-int north_south; //(1 means NS, 0 means WE)
-
-// int straight; //bools
-// int left;
-// int right;
-// int driver_dir; // 0 = N, 1 = E, 2 = S, 3 = W;
-
-// 0 = NW, 1 = NE, 2 = SW, 3 = SE
-
-
+static void
+printRealMessage(int numOfRegionsPassed, int carnumber, int cardirection, int destdirection);
+static void
+checkLocksIntersections(struct lock *lock1, struct lock *lock2, struct lock *lock3, int numOfRegionsPassed, int carnumber, int cardirection, int destdirection);
+int
+calculateDesDirection(int cardirection, int turn);
 /*
  *
  * Function Definitions
@@ -260,7 +251,22 @@ static
 void
 gostraight(unsigned long cardirection,
            unsigned long carnumber)
-{
+{       
+        int destdirection;
+
+        destdirection = calculateDesDirection(cardirection, goS);
+
+        if (cardirection == 0)
+                checkLocksIntersections(NWlock, SWlock, NULL, STRAIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 1)
+                checkLocksIntersections(NWlock, NElock, NULL, STRAIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 2)
+                checkLocksIntersections(NElock, SElock, NULL, STRAIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 3)
+                checkLocksIntersections(SWlock, SElock, NULL, STRAIGHT, carnumber, cardirection, destdirection);
+
+
+
         /*
          * Avoid unused variable warnings.
          */
@@ -273,26 +279,8 @@ gostraight(unsigned long cardirection,
         // acquire_path(path, 2, carnumber, cardirection, 0);
         // release_path(path, 2, /*carnumber,*/ cardirection, 0);
         
-        int destination = get_destination(0, cardirection);
-
-        message(REGION1, carnumber, cardirection, destination);
-        message(REGION2, carnumber, cardirection, destination);
-        message(LEAVING, carnumber, cardirection, destination);
-
-        // up_for_grabs();
-        lock_release(light);
-
-
-
-
-        // needs to acquire 2 locks
-        // if you can't 
-
-
-        // lock_release(intersection); 
-
-        (void) cardirection;
-        (void) carnumber;
+     //   (void) cardirection;
+       // (void) carnumber;
 }
 
 
@@ -318,48 +306,28 @@ void
 turnleft(unsigned long cardirection,
          unsigned long carnumber)
 {
+        int destdirection;
+
+        destdirection = calculateDesDirection(cardirection, goL);
+
+        if (cardirection == 0)
+                checkLocksIntersections(NWlock, SWlock, SElock, LEFT, carnumber, cardirection, destdirection);
+        else if (cardirection == 1)
+                checkLocksIntersections(NWlock, NElock, SWlock, LEFT, carnumber, cardirection, destdirection);
+        else if (cardirection == 2)
+                checkLocksIntersections(NWlock, NElock, SElock, LEFT, carnumber, cardirection, destdirection);
+        else if (cardirection == 3)
+                checkLocksIntersections(NElock, SWlock, SElock, LEFT, carnumber, cardirection, destdirection);
+
+        
+        
+        
         /*
          * Avoid unused variable warnings.
          */
 
-        // lock_release(intersection);
-
-        /*
-         * While I either don't have lock1 , lock2 , or lock3
-         * Lock do I hold returns false here
-         * cv_wait on the locks that I do have 
-        */
-
-        /*
-         * Acquire locks 1 and 2
-         * if you can acquire 1 but not 2, let 1 go and try again
-         * if you can acquire both, try and aquire 3
-         * if you can't acquire 3, let 1 and 2 go and try again
-         * if you acquire 3, let go of lock 1
-         */
-
-         /*
-          * Avoid unused variable warnings.
-          * 
-          */
-
-        // int *path;
-        // path = getPath("left", cardirection);
-        // acquire_path(path, 3, carnumber, cardirection, 1);
-        // release_path(path, 3, /*carnumber,*/ cardirection, 1);
-
-        int destination = get_destination(1, cardirection);
-
-        message(REGION1, carnumber, cardirection, destination);
-        message(REGION2, carnumber, cardirection, destination);
-        message(REGION3, carnumber, cardirection, destination);
-        message(LEAVING, carnumber, cardirection, destination);
-
-        // up_for_grabs();
-        lock_release(light);
-
-        (void) cardirection;
-        (void) carnumber;
+   //     (void) cardirection;
+     //   (void) carnumber;
 }
 
 
@@ -385,29 +353,27 @@ void
 turnright(unsigned long cardirection,
           unsigned long carnumber)
 {
+
+        int destdirection;
+
+        destdirection = calculateDesDirection(cardirection, goR);
+
+        if (cardirection == 0)
+                checkLocksIntersections(NWlock, NULL, NULL, RIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 1)
+                checkLocksIntersections(NElock, NULL, NULL, RIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 2)
+                checkLocksIntersections(SElock, NULL, NULL, RIGHT, carnumber, cardirection, destdirection);
+        else if (cardirection == 3)
+                checkLocksIntersections(SWlock, NULL, NULL, RIGHT, carnumber, cardirection, destdirection);
+
+
         /*
          * Avoid unused variable warnings.
          */
 
-        // lock_release(intersection);
-
-        // int *path;
-        // path = getPath("right", cardirection);
-        // acquire_path(path, 1, carnumber, cardirection, 2);
-        // release_path(path, 1, /*carnumber,*/ cardirection, 2);
-
-        int destination = get_destination(2, cardirection);
-
-        // if you have the green on a right, you can go immediately
-
-        message(REGION1, carnumber, cardirection, destination);
-        message(LEAVING, carnumber, cardirection, destination);
-
-        // up_for_grabs();
-        lock_release(light);
-
-        (void) cardirection;
-        (void) carnumber;
+       // (void) cardirection;
+ //       (void) carnumber;
 }
 
 
@@ -442,20 +408,15 @@ approachintersection(void * unusedpointer,
 
         int cardirection;
         int turn;
-        int destination;
-
-        int num_threads = thread_count();
-        if (num_threads == 1) up_for_grabs();
-
         /*
          * Avoid unused variable and function warnings.
          */
 
         (void) unusedpointer;
-        (void) carnumber;
-        (void) gostraight;
-        (void) turnleft;
-        (void) turnright;
+        //(void) carnumber;
+      //  (void) gostraight;
+       // (void) turnleft;
+       // (void) turnright;
 
         /*
          * cardirection is set randomly.
@@ -464,45 +425,72 @@ approachintersection(void * unusedpointer,
 
         cardirection = random() % 4;
         turn = random() % 3;
-        destination = get_destination(turn, cardirection);
-
-        // north south
-        if (cardirection == 0 || cardirection == 2) {
-                while (!north_south) thread_yield();
-                // q_addtail(north_south_light, curthread); // adding the current thread to q
-                lock_acquire(light);
-                // which_dir = "NS";
-
-                // assert (!q_empty(north_south_light));
-                // void *next_car = q_remhead(west_east_light);
-                // if (next_car != curthread) cv_wait(not_approaching, light);
-        }
-        else {
-                // q_addtail(west_east_light, curthread);
-                while (north_south) thread_yield();
-                // if condition, c_v wait on all the keys you acquired
-                lock_acquire(light);
-
-                // on the condition that the current thread is not next in line, cv_wait
-                // if you were able to acquire the lock but don't need the lock
-                // assert (!q_empty(west_east_light));
-                // void *next_car = q_remhead(west_east_light);
-                // if (next_car != curthread) cv_wait(not_approaching, light);
-
-                // which_dir = "WE";
-        }
-
-        message(APPROACHING, carnumber, cardirection, destination);
 
         if (turn == 0)
-                gostraight(cardirection, carnumber);
+                turnright(cardirection , carnumber);
+        
         else if (turn == 1)
-                turnleft(cardirection, carnumber);
-        else if (turn == 2)
-                turnright(cardirection, carnumber);
+                turnleft(cardirection , carnumber);
+        
+        else 
+                gostraight(cardirection , carnumber);
+}
 
-        if (north_south) north_south = 0;
-        else north_south = 1;
+static void
+printRealMessage(int numOfRegionsPassed, int carnumber, int cardirection, int destdirection){
+        int i;
+
+        if (numOfRegionsPassed == 1) {// right turn
+                for(i = 0; i <= numOfRegionsPassed; i++)
+                message(i, carnumber, cardirection, destdirection);
+                message(4,carnumber, cardirection, destdirection);                
+        }
+
+        else if (numOfRegionsPassed == 2){// straight way{
+                for(i = 0; i <= numOfRegionsPassed; i++)
+                message(i, carnumber, cardirection, destdirection);
+                message(4,carnumber, cardirection, destdirection); 
+        }
+        
+        else{
+                for(i = 0; i <= (numOfRegionsPassed + 1) ; i++)
+                message(i, carnumber, cardirection, destdirection);
+                //message(4,carnumber, cardirection, destdirection); 
+        }
+}
+
+static void
+checkLocksIntersections(struct lock *lock1, struct lock *lock2, struct lock *lock3, int numOfRegionsPassed, int carnumber, int cardirection, int destdirection){
+        
+        assert(lock1);
+
+        lock_acquire(lock1);
+       //  assert(lock2);
+        if(lock2)//lock_do_i_hold(lock2))
+                lock_acquire(lock2);
+                // assert(lock3);
+        if(lock3)//lock_do_i_hold(lock3))
+                lock_acquire(lock3);
+        printRealMessage(numOfRegionsPassed, carnumber, cardirection, destdirection);
+        if (lock3) 
+                lock_release(lock3);
+        if (lock2) 
+                lock_release(lock2);
+        lock_release(lock1);
+}
+
+int
+calculateDesDirection(int cardirection, int turn){
+
+        int desdirection;
+        if (turn == 1)
+                desdirection = (cardirection + 2) % 4;
+        else if(turn == 2)
+                desdirection = (cardirection + 3) % 4;
+        else if(turn == 3)
+                desdirection = (cardirection + 1) % 4;
+
+        return desdirection;
 }
 
 
@@ -569,6 +557,11 @@ createcars(int nargs,
 
         creating();
     
+
+       NWlock = lock_create("NWlock");
+       NElock = lock_create("NElock");
+       SWlock = lock_create("SWlock");
+       SElock = lock_create("SElock");
         /*
          * Start NCARS approachintersection() threads.
          */
