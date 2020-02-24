@@ -141,7 +141,7 @@ mousesem(void * unusedpointer,
         /*
          * Avoid unused variable warnings.
          */
-        int bowl = 0;
+int bowl = 0;
         // if no one is there, go ahead
         // or if there is one mouse eating, go ahead
         // if there is one cat eating, wait
@@ -162,7 +162,7 @@ mousesem(void * unusedpointer,
                         continue;
                 }        
                 // If a cat is eating, it won't be able to acquire the semaphore
-                 assert (bowl1.cat == 0 && bowl2.cat == 0)
+                assert (bowl1.cat == 0 && bowl2.cat == 0)
 
                         if (bowl1.mouse == 1) {
                                 bowl2.mouse = 1;
@@ -281,6 +281,9 @@ catmousesem(int nargs,
         (void)nargs;
         (void)args;
         kprintf("catsem test done\n");
+
+        sem_destroy(bowl_access);
+        sem_destroy(bowl_check);
  
         return 0;
 }
