@@ -242,7 +242,10 @@ void
 cv_wait(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	assert(lock != NULL && lock_do_i_hold(lock) && cv != NULL && !in_interrupt);
+	// assert(lock != NULL);
+	// assert(lock_do_i_hold(lock));
+	// assert(cv != NULL);
+	// assert(!in_interrupt);
 
 	lock_release(lock);
 	int spl;
@@ -260,7 +263,10 @@ void
 cv_signal(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	assert(lock != NULL && lock_do_i_hold(lock) && cv != NULL && !in_interrupt);
+	// assert(lock != NULL);
+	assert(lock_do_i_hold(lock));
+	// assert(cv != NULL);
+	// assert(!in_interrupt);
 
 	int spl;
 	spl = splhigh();
