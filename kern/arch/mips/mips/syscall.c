@@ -6,7 +6,16 @@
 #include <machine/trapframe.h>
 #include <kern/callno.h>
 #include <syscall.h>
-
+#include <kern/unistd.h>
+#include <vnode.h>
+#include <uio.h>
+#include <vfs.h>
+#include <curthread.h>
+#include <thread.h>
+#include <addrspace.h>
+#include <kern/limits.h>
+#include <test.h>
+#include <clock.h>
 
 /*
  * System call handler.
@@ -73,6 +82,14 @@ mips_syscall(struct trapframe *tf)
 		break;
 
 	    /* Add stuff here */
+		case SYS_write:
+		err = sys_write(tf->tf_a0, (char *) tf->tf_a1, tf->tf_a2, &retval);
+		break;
+		
+		// case SYS_exit:
+		// err = sys_exit();
+
+
  
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
@@ -118,4 +135,55 @@ md_forkentry(struct trapframe *tf)
 	 */
 
 	(void)tf;
+}
+
+
+int sys_write(int fileDest, char *buf, size_t size, int *retval){
+
+	
+	//check memory fault
+	char *momo = kmalloc(size);
+	if(copyin((const_userptr_t) buf, momo, size)){
+		kfree(momo);
+		return EFAULT;
+	}	
+	
+	//checking for bad file number
+	if (fileDest != STDOUT_FILENO && fileDest != STDERR_FILENO)
+		return EBADF;
+
+	//open  stdin
+	struct uio _ku;
+	struct vnode *vnd;
+	char *stdin = kstrdup("con:"); //copied from waterloo site no idea why or wat it is
+
+    vfs_open(stdin, O_WRONLY, &vnd);
+    kfree(stdin); // wtf? idk if i shd do this im scared
+
+	//copy stdin to momo or starting point to write 
+	mk_kuio(&_ku, momo, size, 0, UIO_WRITE);
+	int spl = splhigh();
+	int check = VOP_READ(vnd, &_ku)
+	splx(spl);
+
+	//checking if you are writting ?
+	if(check){
+
+		vfs_close(vnd);
+		kfree(momo);
+		return check;
+	}
+
+	vfs_close(vnd);
+	kfree(momo);
+	*retval = size;
+	
+	return 0;
+
+}
+
+int SYS__exit(int exit){
+	*curthread->exit = exit;
+	//thread_detach(); //looks like it need to write this func in thread.c and thread.h
+	thread_exit();
 }
