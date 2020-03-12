@@ -16,7 +16,7 @@
 #include <kern/limits.h>
 #include <../include/vm.h>
 #include <synch.h>
-
+//#include <syscall.h>
 
 
 /* States a thread can be in. */
@@ -103,7 +103,7 @@ thread_create(const char *name)
 
 	thread->exitcode = kmalloc(sizeof (int));
     thread->waitonlock = lock_create("twlock");
-    thread->waiton = cv_create("twcv");
+    thread->waitoncv = cv_create("twcv");
 
 	return thread;
 }
@@ -137,7 +137,7 @@ thread_destroy(struct thread *thread)
 
 	assert(thread->t_pid >= 0 && thread->t_pid < THREAD_MAX);
 
-	
+
     threadmap[thread->t_pid] = NULL;
 
 	kfree(thread);
@@ -199,6 +199,8 @@ thread_killall(void)
 
 	result = array_setsize(sleepers, 0);
 	/* shrinking array: not supposed to fail */
+
+	//sys__exit(exitcode);	
 	assert(result==0);
 }
 
@@ -384,14 +386,7 @@ thread_fork(const char *name,
  * Suspend execution of curthread until thread terminates. 
  * Return zero on success, EDEADLK if deadlock would occur.
  */
-int thread_join(struct thread * thread)
-{
-        // Replace this
-        clocksleep(5);
-        
-        (void)thread;  // suppress warning until code gets written
-        return 0;
-}
+
 
 /*
  * High level, machine-independent context switch code.
@@ -507,6 +502,8 @@ thread_exit(void)
 	}
 
 	splhigh();
+	//***************************************************************************************************************
+	thread_detach(curthread);
 
 	if (curthread->t_vmspace) {
 		/*
@@ -662,4 +659,28 @@ thread_getthepid(pid_t pid) {
 
     if (pid < 0 || pid >= THREAD_MAX) return NULL;
     return threadmap[pid];
+}
+
+void
+thread_detach(struct thread *th) {
+    lock_acquire(th->waitonlock);
+    cv_broadcast(th->waitoncv, th->waitonlock);
+    lock_release(th->waitonlock);
+}
+
+// void thread_join1(struct thread * thread)
+// {
+//     lock_acquire(thread->waitonlock);
+//     cv_wait(thread->waitoncv, thread->waitonlock);
+//     lock_release(thread->waitonlock);
+// }
+
+int thread_join(struct thread * th)
+{
+    lock_acquire(th->waitonlock);
+    cv_wait(th->waitoncv, th->waitonlock);
+    lock_release(th->waitonlock);
+        
+       // (void)thread;  // suppress warning until code gets written
+        return 0;
 }

@@ -12,4 +12,7 @@ int sys__time(time_t *sec, unsigned long *nanosec, int *retval);
 int sys_read(int fd, char *buf, size_t buflen, int *retval);
 unsigned int sys_sleep(unsigned int seconds);
 int sys_fork(struct trapframe *tf, int *retval);
+int sys_getpid(int *retval);
+//void sys__exit(int exitcode);
+
 #endif /* _SYSCALL_H_ */

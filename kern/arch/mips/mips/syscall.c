@@ -105,8 +105,12 @@ mips_syscall(struct trapframe *tf)
 		case SYS_fork:
         err = sys_fork(tf, &retval);
         break;
- 
-	    default:
+
+		case SYS_getpid:
+        err = sys_getpid(&retval);
+        break;
+	    
+		default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
 		break;
@@ -173,6 +177,18 @@ sys_sleep(unsigned int seconds){
     clocksleep(seconds);
     return 0;
 }
+
+int
+sys_getpid(int *retval) {
+    *retval = curthread->t_pid;
+    return 0;
+}
+
+// void
+// sys__exit(int exitcode) {
+//     *curthread->exitcode = exitcode;
+//     thread_exit(); //thread_detach called in thread_exit
+// }
 
 // int sys_write(int fileDest, const void* buf, size_t size, int *retval){
 
@@ -264,7 +280,7 @@ int sys__time(time_t *sec, unsigned long *nanosec, int *retval){
 
 void
 sys__exit(int exitcode){
-	exitcode = 1;
+	*curthread->exitcode = exitcode;
 	thread_exit();
 	return;
 }
