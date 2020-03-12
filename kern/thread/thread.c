@@ -13,6 +13,11 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include "opt-synchprobs.h"
+#include <kern/limits.h>
+#include <../include/vm.h>
+#include <synch.h>
+
+
 
 /* States a thread can be in. */
 typedef enum {
@@ -34,9 +39,15 @@ static struct array *zombies;
 /* Total number of outstanding threads. Does not count zombies[]. */
 static int numthreads;
 
+static struct thread *threadmap[THREAD_MAX + 1] = {NULL};
+
 /*
+
  * Returns number of active threads
+ * 
  */
+
+
 
 int
 thread_count(void)
@@ -75,6 +86,25 @@ thread_create(const char *name)
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
 	
+	int spl = splhigh();
+	/* Assign pid */
+    unsigned long i;
+    for (i = 0; i < THREAD_MAX; i++) {
+        if (!threadmap[i]) {
+            thread->t_pid = i;
+            threadmap[i] = thread;
+            break;
+        }
+    }
+
+    splx(spl);
+
+	//****************************************************************************************************8
+
+	thread->exitcode = kmalloc(sizeof (int));
+    thread->waitonlock = lock_create("twlock");
+    thread->waiton = cv_create("twcv");
+
 	return thread;
 }
 
@@ -103,6 +133,13 @@ thread_destroy(struct thread *thread)
 	}
 
 	kfree(thread->t_name);
+
+
+	assert(thread->t_pid >= 0 && thread->t_pid < THREAD_MAX);
+
+	
+    threadmap[thread->t_pid] = NULL;
+
 	kfree(thread);
 }
 
@@ -618,4 +655,11 @@ mi_threadstart(void *data1, unsigned long data2,
 
 	/* Done. */
 	thread_exit();
+}
+
+struct thread *
+thread_getthepid(pid_t pid) {
+
+    if (pid < 0 || pid >= THREAD_MAX) return NULL;
+    return threadmap[pid];
 }

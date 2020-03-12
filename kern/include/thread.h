@@ -37,6 +37,9 @@ struct thread {
 	 * and is manipulated by the virtual filesystem (VFS) code.
 	 */
 	struct vnode *t_cwd;
+
+
+	pid_t t_pid;
 };
 
 /* Call once during startup to allocate data structures. */
@@ -108,7 +111,12 @@ int thread_hassleepers(const void *addr);
 
 /*
  * Private thread functions.
+ * 
  */
+struct thread *thread_getthepid(pid_t pid);
+
+
+
 
 /* Machine independent entry point for new threads. */
 void mi_threadstart(void *data1, unsigned long data2, 
