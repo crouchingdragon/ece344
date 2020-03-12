@@ -6,7 +6,18 @@
 #include <machine/trapframe.h>
 #include <kern/callno.h>
 #include <syscall.h>
-
+#include <kern/unistd.h>
+#include <vnode.h>
+#include <uio.h>
+#include <vfs.h>
+#include <curthread.h>
+#include <thread.h>
+#include <addrspace.h>
+#include <kern/limits.h>
+#include <test.h>
+#include <clock.h>
+#include <syscall.h>
+// #include <stdio.h>
 
 /*
  * System call handler.
@@ -73,10 +84,26 @@ mips_syscall(struct trapframe *tf)
 		break;
 
 	    /* Add stuff here */
-		// case SYS_read:
-		// err = sys_read(tf->tf_a0);
-		// break;
- 
+		case SYS_read:
+		err = sys_read(tf->tf_a0, (char*) tf->tf_a1, tf->tf_a2, &retval);
+		break;
+
+		case SYS_write:
+		err = sys_write(tf->tf_a0, (char *) tf->tf_a1, tf->tf_a2, &retval); 
+		break;
+		
+		case SYS__exit:
+		sys__exit(SYS__exit);
+		break;
+
+		case SYS___time:
+		err = sys___time((time_t*) tf->tf_a0, (unsigned long*) tf->tf_a1, &retval);
+		break;
+
+		case SYS_sleep:
+		err = sys_sleep((unsigned int) tf->tf_a0);
+		break;
+
 	    default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
@@ -121,4 +148,129 @@ md_forkentry(struct trapframe *tf)
 	 */
 
 	(void)tf;
+}
+
+int
+sys_read(int fd, void* buf, size_t buflen, int *retval) {
+
+
+	// retval is the count of bytes read by the end of this
+	// on error, return -1 and set erno to specific error code
+	// reads up to buflen bytes from fd, at location specified by current seek position of file, stores them in space pointed to by buf
+	// file must be open for reading
+	// current seek position must be advanced by the number of bytes read
+
+	// check function parameters - is everything legal?
+	// EBADF fd is not a valid file descriptor or was not opened for reading
+	if (fd != STDIN_FILENO) {
+		*retval = -1;
+		return EBADF;
+	}
+	// int invalid = copyout(const void *src, buf, buflen); //?
+	// part or all of an address space pointed to by buf is invalid
+	if (buf == NULL) {
+		*retval = -1;
+		return EFAULT;
+	}
+	// length of buffer is not equal to 1
+	// if (buflen != 1){
+	// 	*retval = -1;
+	// 	return EUNIMP;
+	// }
+
+	kgets(buf, buflen);
+	*retval = 0;
+	return 0;
+
+}
+
+
+int sys_write(int fileDest, char *buf, size_t size, int *retval){
+ 
+   
+    //check memory fault
+    char *momo = kmalloc(size);
+    if(copyin((const_userptr_t) buf, momo, size)){
+        kfree(momo);
+        return EFAULT;
+    }  
+   
+    //checking for bad file number
+    if (fileDest != STDOUT_FILENO && fileDest != STDERR_FILENO)
+        return EBADF;
+ 
+    //open  stdin
+    struct uio _ku;
+    struct vnode *vnd;
+    char *stdin = kstrdup("con:"); //copied from waterloo site no idea why or wat it is
+ 
+    vfs_open(stdin, O_WRONLY, &vnd);
+    kfree(stdin); // wtf? idk if i shd do this im scared
+ 
+    //copy stdin to momo or starting point to write
+    mk_kuio(&_ku, momo, size, 0, UIO_WRITE);
+    int spl = splhigh();
+    int check = VOP_WRITE(vnd, &_ku);
+    splx(spl);
+ 
+    //checking if you are writting ?
+    if(check){
+ 
+        vfs_close(vnd);
+        kfree(momo);
+        return check;
+    }
+ 
+    vfs_close(vnd);
+    kfree(momo);
+    *retval = size;
+   
+    return 0;
+ 
+}
+
+void
+sys__exit(int exitcode){
+	// placeholder
+	exitcode = 1;
+	thread_exit();
+	return;
+}
+
+int
+sys___time(time_t *sec, unsigned long *nanosec, int *retval){
+   
+    // declare destination variables
+   
+    time_t *seconds = kmalloc(sizeof(time_t));
+    unsigned long *nanoseconds = kmalloc(sizeof(unsigned long));
+ 
+    //checking for error bad memory access
+ 
+    if(nanosec != NULL){
+        if(copyin((const_userptr_t) nanosec, nanoseconds, sizeof(unsigned long)))
+            return EFAULT;
+    }
+ 
+    if(sec != NULL){
+        if(copyin((const_userptr_t) sec, seconds, sizeof(time_t)))
+            return EFAULT;
+    }
+ 
+    gettime(seconds,(u_int32_t *) nanoseconds);
+    copyout(seconds, (userptr_t) sec, sizeof(time_t));
+    copyout(nanoseconds, (userptr_t) nanosec, sizeof (unsigned long));
+ 
+    *retval = *seconds;
+   
+ 
+    kfree(seconds);
+    kfree(nanoseconds);
+    return 0;
+}
+
+unsigned int
+sys_sleep(unsigned int seconds){
+	clocksleep(seconds);
+	return 0;
 }

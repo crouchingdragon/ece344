@@ -36,7 +36,7 @@ struct thread {
 	 * This is public because it isn't part of the thread system,
 	 * and is manipulated by the virtual filesystem (VFS) code.
 	 */
-	struct vnode *t_cwd;
+	struct vnode *t_cwd; // current working directory?
 };
 
 /* Call once during startup to allocate data structures. */
