@@ -40,10 +40,18 @@ struct thread {
 
 
 	pid_t t_pid;
+<<<<<<< HEAD
 	int* exitcode;
 	struct lock* waitonlock;
 	struct cv* waiton;
 	// int child[PID_MAX];
+=======
+	//pid_t t_parent_pid;
+	struct lock *waitonlock;
+	struct cv *waitoncv;
+	int *exitcode;
+
+>>>>>>> 4043f05312be20501b3a18a7c40777720b17b592
 };
 
 /* Call once during startup to allocate data structures. */
@@ -77,6 +85,8 @@ int thread_fork(const char *name,
  * Suspend execution of the calling thread until the target thread 
  * terminates, unless the target thread has already terminated.
  */
+//void thread_join(struct thread * thread);
+
 int thread_join(struct thread * thread);
 
 /*
@@ -119,7 +129,7 @@ int thread_hassleepers(const void *addr);
  */
 struct thread *thread_getthepid(pid_t pid);
 
-
+void thread_detach(struct thread *th);
 
 
 /* Machine independent entry point for new threads. */

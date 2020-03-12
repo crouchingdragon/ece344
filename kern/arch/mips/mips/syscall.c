@@ -107,8 +107,12 @@ mips_syscall(struct trapframe *tf)
 		case SYS_fork:
         err = sys_fork(tf, &retval);
         break;
- 
-	    default:
+
+		case SYS_getpid:
+        err = sys_getpid(&retval);
+        break;
+	    
+		default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;
 		break;
@@ -210,8 +214,7 @@ sys__time(time_t *sec, unsigned long *nanosec, int *retval){
 
 void
 sys__exit(int exitcode){
-	// if parent has already exited don't do anything
-	exitcode = 1;
+	*curthread->exitcode = exitcode;
 	thread_exit();
 	return;
 }
