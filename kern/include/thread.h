@@ -40,6 +40,10 @@ struct thread {
 
 
 	pid_t t_pid;
+	int* exitcode;
+	struct lock* waitonlock;
+	struct cv* waiton;
+	// int child[PID_MAX];
 };
 
 /* Call once during startup to allocate data structures. */

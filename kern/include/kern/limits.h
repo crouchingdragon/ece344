@@ -9,4 +9,6 @@
 
 #define THREAD_MAX 1024
 
+#define PID_MAX 1024
+
 #endif /* _KERN_LIMITS_H_ */

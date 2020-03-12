@@ -100,10 +100,6 @@ mips_syscall(struct trapframe *tf)
 		err = sys__time((time_t *)tf->tf_a0, (unsigned long *) tf->tf_a1, &retval);
 		break;
 
-		case SYS_read:
-		err = sys_read(tf->tf_a0, (char *) tf->tf_a1, tf->tf_a2, &retval);
-		break;
-
 		case SYS_sleep:
         err = sys_sleep((unsigned int) tf->tf_a0);
         break;
@@ -214,6 +210,7 @@ sys__time(time_t *sec, unsigned long *nanosec, int *retval){
 
 void
 sys__exit(int exitcode){
+	// if parent has already exited don't do anything
 	exitcode = 1;
 	thread_exit();
 	return;
@@ -386,5 +383,36 @@ int sys_fork(struct trapframe *tf, int *retval){
 
 	*retval = rope->t_pid;
 	splx(spl);
+	return 0;
+}
+
+pid_t
+sys_waitpid(pid_t pid, int* status, int options){
+	// check for valid args
+	// Does the pid we want to wait on exist/ is it valid? ESRCH
+	// if it exists, is it our child? Can we wait? ECHILD
+	
+	// make sure you're not trying to wait on yourself
+	// make sure you're not waiting on your parent
+	// options should be 0
+	// curthread->child[pid] == NULL || 
+	if (pid == curthread->t_pid || pid <= 0 || options != 0){
+		return EINVAL;
+	}
+	// // is the status pointer a valid pointer (NULL, pointer to kernel...)
+	// is the status pointer properly aligned (by 4 bytes)
+
+	// if (status == NULL || *status == 0x40000000 || *status == 0x80000000 || ((int)&status % 4 != 0)){
+	// 	return EFAULT;
+	// }
+
+	if (status == NULL) return EFAULT;
+
+	// acquire the exit lock
+	// see if the process has exited, else wait using cv_wait on exitcv
+	// get exit code
+	// destroy the child process's structure, free slot in array (every child only has one parent)
+	// release exit lock
+	// curthread->child[pid]->
 	return 0;
 }
