@@ -127,7 +127,7 @@ void thread_detach(struct thread *th);
 int thread_join(struct thread *th);
 
 
-
+void initialize(int boot);
 
 
 

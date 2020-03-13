@@ -59,6 +59,22 @@ static struct proc process[THREAD_MAX + 1];
  * Returns number of active threads
  * 
  */
+int boot;
+
+void initialize(int boot){
+	
+	if (boot){
+		int i;
+	for(i = 0; i < THREAD_MAX; i++) {
+		process[i].parent = -2;
+		process[i].zomb = 0;
+		process[i].exitcode = -1;
+		process[i].who = NULL;
+	}
+
+	}
+	
+}
 
 
 
@@ -99,16 +115,6 @@ thread_create(const char *name)
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
 	
-	/* Assign pid */
-    // unsigned long i;
-    // for (i = 0; i < THREAD_MAX; i++) {
-    //     if (!threadmap[i]) {
-    //         thread->t_pid = i;
-    //         threadmap[i] = thread;
-    //         break;
-    //     }
-    // }
-
 	int c = 0;
 
 	while(process[c].parent != -2 && c < THREAD_MAX) {
@@ -138,6 +144,9 @@ thread_create(const char *name)
 		process[c].enter = sem_create("enter", 1);
 		process[c].reap = 0;
 	}
+
+	//boot = 0;
+	//initialize(boot);
 
 	//****************************************************************************************************8
 
@@ -175,15 +184,6 @@ thread_destroy(struct thread *thread)
 	}
 
 	kfree(thread->t_name);
-
-
-	// assert(thread->t_pid >= 0 && thread->t_pid < THREAD_MAX);
-
-
-    // threadmap[thread->t_pid] = NULL;
-
-	
-
 
 
 	kfree(thread);
@@ -271,13 +271,16 @@ thread_bootstrap(void)
 	
 	struct thread *me;
 
-	int i;
-	for(i = 0; i < THREAD_MAX; i++) {
-		process[i].parent = -2;
-		process[i].zomb = 0;
-		process[i].exitcode = -1;
-		process[i].who = NULL;
-	}
+	// int i;
+	// for(i = 0; i < THREAD_MAX; i++) {
+	// 	process[i].parent = -2;
+	// 	process[i].zomb = 0;
+	// 	process[i].exitcode = -1;
+	// 	process[i].who = NULL;
+	// }
+
+	boot =1;
+	initialize(boot);
 
 	/* Create the data structures we need. */
 	sleepers = array_create();
