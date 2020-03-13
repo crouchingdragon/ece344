@@ -39,12 +39,11 @@ struct thread {
 	struct vnode *t_cwd;
 
 
-	 pid_t pid;
-	// pid_t t_parent_pid;
-	// struct lock *waitonlock;
-	// struct cv *waitoncv;
-	// int *exitcode;
-	// int state;
+	pid_t pid;
+	pid_t parent;
+	struct lock *waitonlock;
+	struct cv *waitoncv;
+	int *exitcode;
 
 };
 
@@ -123,6 +122,25 @@ int thread_hassleepers(const void *addr);
  */
 struct thread *thread_getthepid(pid_t pid);
 
+void thread_detach(struct thread *th);
+
+int thread_join(struct thread *th);
+
+
+
+
+
+
+
+
+
+
+/* Machine independent entry point for new threads. */
+void mi_threadstart(void *data1, unsigned long data2, 
+		    void (*func)(void *, unsigned long));
+
+/* Machine dependent context switch. */
+void md_switch(struct pcb *old, struct pcb *nu);
 
 void
 freeing_proc(pid_t pid);
@@ -142,15 +160,20 @@ get_exitcode(pid_t pid);
 pid_t
 get_pid(void);
 
+void
+P_enter(pid_t pid);
 
+void
+V_enter(pid_t pid);
 
+void
+P_done(pid_t pid);
 
-/* Machine independent entry point for new threads. */
-void mi_threadstart(void *data1, unsigned long data2, 
-		    void (*func)(void *, unsigned long));
+void
+V_done(pid_t pid);
 
-/* Machine dependent context switch. */
-void md_switch(struct pcb *old, struct pcb *nu);
+int
+reap(pid_t pid);
 
 
 #endif /* _THREAD_H_ */

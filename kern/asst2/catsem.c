@@ -25,15 +25,6 @@
 struct semaphore *bowl_check;
 struct semaphore *bowl_access;
 
-// is the bowl being eaten from (1 means yes, 0 means no)
-//int bowl1 = 1;
-//int bowl2 = 1;
-
-// counters to keep track of cat and mouse
-
-//int catCount = 0;
-//int mouseCount = 0;
-
 struct type{
         int cat;
         int mouse;
@@ -93,31 +84,21 @@ int bowl;
                         V(bowl_access);
                         continue;
                 }
-                //catCount++;
                 assert (bowl1.mouse == 0 && bowl2.mouse == 0)
-               // if (catCount == 1){
-                      //  P(cat_or_mouse);
-                        // critical region
                         if (bowl1.cat == 1) {
                                 bowl2.cat = 1;
                                 catmouse_eat("cat", catnumber, 2, meal);
-                               // bowl2 = 1;
-                               bowl = 2;
+                                bowl = 2;
                         }
                         else {
                                 bowl1.cat = 1;
                                 catmouse_eat("cat", catnumber, 1, meal);
-                                //bowl1 = 1; // bowl1 now occupied
-                                 bowl = 1;
+                                bowl = 1;
                         }
                         meal++;
                         V(bowl_check);
-               // }
                 
                 P(bowl_check);
-               // catCount--;
-               // if(catCount == 0)// all cats finished eating
-                 //       V(cat_or_mouse);
                 if(bowl == 1){
                         bowl1.empty =1;
                         bowl1.cat = 0;
@@ -165,15 +146,15 @@ int bowl = 0;
         // or if there is one mouse eating, go ahead
         // if there is one cat eating, wait
         // or if there are two things eating (no matter what they are), wait
-
+ 
         int meal = 0;
-
+ 
         // while the thread has not eaten all its meals yet
         while (meal < NMEALS) {
                  // If there are 2 things eating, it won't be able to acquire the other semaphore
                 P(bowl_access);
                 P(bowl_check);
-
+ 
                 if ((bowl1.cat == 1) || (bowl2.cat == 1)){
                         meal--;
                         V(bowl_check);
@@ -181,14 +162,8 @@ int bowl = 0;
                         continue;
                 }        
                 // If a cat is eating, it won't be able to acquire the semaphore
-              //  mouseCount++;
-                 assert (bowl1.cat == 0 && bowl2.cat == 0)
-               // if (mouseCount == 1){
-                        
-                 //       P(cat_or_mouse);
-                       
-                        // critical region
-                        
+                assert (bowl1.cat == 0 && bowl2.cat == 0)
+
                         if (bowl1.mouse == 1) {
                                 bowl2.mouse = 1;
                                 catmouse_eat("mouse", mousenumber, 2, meal);
@@ -201,15 +176,9 @@ int bowl = 0;
                         }
                         meal++;
                         V(bowl_check);
-                //}
                
                 P(bowl_check);
-                
-              //  mouseCount--;
-                
-              //  if(mouseCount == 0)// all cats finished eating
-                //        V(cat_or_mouse);
-                
+               
                 if(bowl == 1){
                         bowl1.empty = 1;
                         bowl1.mouse = 0;
@@ -250,69 +219,72 @@ catmousesem(int nargs,
         int index, error;
         bowl_check = sem_create("bowl_check", 2);
         bowl_access = sem_create("bowl_access", 1);
-
-
+ 
+ 
         /*
          * Start NCATS catsem() threads.
          */
-
+ 
         for (index = 0; index < NCATS; index++) {
            
-                error = thread_fork("catsem Thread", 
-                                    NULL, 
-                                    index, 
-                                    catsem, 
+                error = thread_fork("catsem Thread",
+                                    NULL,
+                                    index,
+                                    catsem,
                                     NULL
                                     );
-                
+               
                 /*
                  * panic() on error.
                  */
-
+ 
                 if (error) {
                  
-                        panic("catsem: thread_fork failed: %s\n", 
+                        panic("catsem: thread_fork failed: %s\n",
                               strerror(error)
                               );
                 }
         }
-        
+       
         /*
          * Start NMICE mousesem() threads.
          */
-
+ 
         for (index = 0; index < NMICE; index++) {
    
-                error = thread_fork("mousesem Thread", 
-                                    NULL, 
-                                    index, 
-                                    mousesem, 
+                error = thread_fork("mousesem Thread",
+                                    NULL,
+                                    index,
+                                    mousesem,
                                     NULL
                                     );
-                
+               
                 /*
                  * panic() on error.
                  */
-
+ 
                 if (error) {
          
-                        panic("mousesem: thread_fork failed: %s\n", 
+                        panic("mousesem: thread_fork failed: %s\n",
                               strerror(error)
                               );
                 }
         }
-
+ 
         /*
          * wait until all other threads finish
          */
-
+ 
         while (thread_count() > 1)
                 thread_yield();
-
+ 
         (void)nargs;
         (void)args;
         kprintf("catsem test done\n");
 
+        sem_destroy(bowl_access);
+        sem_destroy(bowl_check);
+ 
         return 0;
 }
 

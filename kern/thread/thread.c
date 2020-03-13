@@ -39,15 +39,20 @@ static struct array *zombies;
 /* Total number of outstanding threads. Does not count zombies[]. */
 static int numthreads;
 
+// static struct thread *threadmap[THREAD_MAX + 1] = {NULL};
+
 struct proc {
     pid_t parent;
     int exitcode;
     int zomb; // 1 for has been exited, 0 for no
+	int reap;
     struct thread* who;
+	struct semaphore* enter;
+	struct semaphore* done;
    
 };
 
-static struct proc processes[THREAD_MAX + 1];
+static struct proc process[THREAD_MAX + 1];
 
 /*
 
@@ -90,15 +95,10 @@ thread_create(const char *name)
 	thread->t_vmspace = NULL;
 
 	thread->t_cwd = NULL;
-
-	// // suz edit************************************************************************************************************************************************
 	
-	//thread->state = 0;
-
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
 	
-	int spl = splhigh();
 	/* Assign pid */
     // unsigned long i;
     // for (i = 0; i < THREAD_MAX; i++) {
@@ -109,56 +109,46 @@ thread_create(const char *name)
     //     }
     // }
 
-	// int i;
-    // // start from 1
-    // for (i=1; i < THREAD_MAX; i++){
-    //     // the pid is the index
-    //     if (processes[i] == NULL) {
-	// 		thread->pid = i;
-    //         processes[i]->who = thread;
-    //         //if (curthread != NULL && thread != curthread) processes[i]->parent = curthread->pid;
-    //        // else processes[i]->parent = (pid_t)0;
-    //         break;
-    //     }
-    // }
-
 	int c = 0;
 
-	while(processes[c].parent != -2 && c < THREAD_MAX) {
+	while(process[c].parent != -2 && c < THREAD_MAX) {
 		c++;
 	}
 	
 	thread->pid = c;
 
 	if(c == 0) {
-		processes[c].parent = -1;
-		processes[c].zomb = 0;
-		processes[c].exitcode = -1;
-		processes[c].who = thread;
+		process[c].parent = -1;
+		thread->parent = -1;
+		process[c].zomb = 0;
+		process[c].exitcode = -1;
+		process[c].who = thread;
+		process[c].done = sem_create("done", 1);
+		process[c].enter = sem_create("enter", 1);
+		process[c].reap = 0;
 	}
 	else {
 		//check if the curthread->pid is right
-		processes[c].parent = curthread->pid;
-		processes[c].zomb = 0;
-		processes[c].exitcode = -1;
-		processes[c].who = thread;
+		process[c].parent = curthread->pid;
+		thread->parent = curthread->pid;
+		process[c].zomb = 0;
+		process[c].exitcode = -1;
+		process[c].who = thread;
+		process[c].done = sem_create("done", 1);
+		process[c].enter = sem_create("enter", 1);
+		process[c].reap = 0;
 	}
-
-
-	//if (curthread != NULL && thread != curthread) thread->parent = curthread->t_pid;
-	//else thread->t_parent_pid = (pid_t)0;
-	//thread->parent = curthread->t_pid;
-    
-	splx(spl);
 
 	//****************************************************************************************************8
 
-	// thread->exitcode = kmalloc(sizeof (int));
-    // thread->waitonlock = lock_create("twlock");
-    // thread->waitoncv = cv_create("twcv");
+	thread->exitcode = kmalloc(sizeof (int));
+    thread->waitonlock = lock_create("twlock");
+    thread->waitoncv = cv_create("twcv");
+
 
 	return thread;
 }
+
 
 /*
  * Destroy a thread.
@@ -191,6 +181,10 @@ thread_destroy(struct thread *thread)
 
 
     // threadmap[thread->t_pid] = NULL;
+
+	
+
+
 
 	kfree(thread);
 }
@@ -274,14 +268,15 @@ thread_panic(void)
 struct thread *
 thread_bootstrap(void)
 {
+	
 	struct thread *me;
 
 	int i;
 	for(i = 0; i < THREAD_MAX; i++) {
-		processes[i].parent = -2;
-		processes[i].zomb = 0;
-		processes[i].exitcode = -1;
-		processes[i].who = NULL;
+		process[i].parent = -2;
+		process[i].zomb = 0;
+		process[i].exitcode = -1;
+		process[i].who = NULL;
 	}
 
 	/* Create the data structures we need. */
@@ -504,7 +499,8 @@ mi_switch(threadstate_t nextstate)
 	else {
 		assert(nextstate==S_ZOMB);
 		result = array_add(zombies, cur);
-		//curthread->state=1;
+		// added for wait
+		// curthread->state = 1;
 	}
 	assert(result==0);
 
@@ -715,38 +711,28 @@ mi_threadstart(void *data1, unsigned long data2,
 	thread_exit();
 }
 
-struct thread *
-thread_getthepid(pid_t pid) {
+// struct thread *
+// thread_getthepid(pid_t pid) {
 
-    if (pid < 0 || pid >= THREAD_MAX) return NULL;
-    return processes[pid].who;
-}
+//     // if (pid < 0 || pid >= THREAD_MAX) return NULL;
+//     // return threadmap[pid];
+// }
 
 // void
 // thread_detach(struct thread *th) {
 //     lock_acquire(th->waitonlock);
 //     cv_broadcast(th->waitoncv, th->waitonlock);
 //     lock_release(th->waitonlock);
-
-// 	//assert(th->t_pid >= 0 && th->t_pid < THREAD_MAX);
-//     //threadmap[th->t_pid] = NULL;
-// 	//kfree(th);
-// }
-
-// void thread_join1(struct thread * thread)
-// {
-//     lock_acquire(thread->waitonlock);
-//     cv_wait(thread->waitoncv, thread->waitonlock);
-//     lock_release(thread->waitonlock);
 // }
 
 int thread_join(struct thread * th)
 {
-    // lock_acquire(th->waitonlock);
-    // cv_wait(th->waitoncv, th->waitonlock);
-    // lock_release(th->waitonlock);
+//     lock_acquire(th->waitonlock);
+//     cv_wait(th->waitoncv, th->waitonlock);
+//     lock_release(th->waitonlock);
+	clocksleep(5);
         
-        (void)th;  // suppress warning until code gets written
+       (void)th;  // suppress warning until code gets written
         return 0;
 }
 
@@ -754,23 +740,28 @@ void
 freeing_proc(pid_t pid){
     // threadmap[pid] = NULL;
     // set it to NULL
-    processes[pid].exitcode = -1;
-	processes[pid].parent = -2;
-	processes[pid].who = NULL;
-	processes[pid].zomb = 0;
+    process[pid].exitcode = -1;
+	process[pid].parent = -2;
+	process[pid].who = NULL;
+	process[pid].zomb = 0;
+	process[pid].reap = 1;
+
+	// sem_destroy(process[pid].enter);
+	// sem_destroy(process[pid].done);
+
 }
  
 void
 exit_setting(pid_t pid, int code){
     // *threadmap[pid]->exitcode = code;
     // threadmap[pid]->state = 1;
-    processes[pid].exitcode = code;
-    processes[pid].zomb = 1;
+    process[pid].exitcode = code;
+    process[pid].zomb = 1;
 }
  
 pid_t
 get_parentpid(pid_t pid){
-    return (processes[pid].parent);
+    return (process[pid].parent);
 }
 
 pid_t
@@ -780,10 +771,36 @@ get_pid(void){
 
 int
 already_exited(pid_t pid){
-    return (processes[pid].zomb);
+    return (process[pid].zomb);
 }
  
 int
 get_exitcode(pid_t pid){
-    return (processes[pid].exitcode);
+    return (process[pid].exitcode);
 }
+
+void
+P_enter(pid_t pid){
+	P(process[pid].enter);
+}
+
+void
+V_enter(pid_t pid){
+	V(process[pid].enter);
+}
+
+void
+P_done(pid_t pid){
+	P(process[pid].done);
+}
+
+void
+V_done(pid_t pid){
+	V(process[pid].done);
+}
+
+int
+reap(pid_t pid){
+	return(process[pid].reap);
+}
+

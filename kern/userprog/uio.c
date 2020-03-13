@@ -11,7 +11,7 @@
 int
 uiomove(void *ptr, size_t n, struct uio *uio)
 {
-	struct iovec *iov;
+	struct iovec *iov; // input output vector?
 	size_t size;
 	int result;
 
@@ -56,7 +56,7 @@ uiomove(void *ptr, size_t n, struct uio *uio)
 		    case UIO_USERSPACE:
 		    case UIO_USERISPACE:
 			    if (uio->uio_rw == UIO_READ) {
-				    result = copyout(ptr, iov->iov_ubase,size);
+				    result = copyout(ptr, iov->iov_ubase, size);
 			    }
 			    else {
 				    result = copyin(iov->iov_ubase, ptr, size);
