@@ -690,11 +690,13 @@ sys_getpid(int *retval) {
 int
 sys_execv(const char *prog, char **args){
 
-if(prog == NULL || (unsigned int) prog == MIPS_KSEG0 || (unsigned int) prog == 0x40000000||  *args == NULL ||  (unsigned int)args ==  0x40000000 || (unsigned int) args == MIPS_KSEG0 )
+if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned int)args ==  0x40000000 || (unsigned int) args == MIPS_KSEG0 ){
 	return EFAULT;
+}
 
-if(*prog == (unsigned int) NULL)
+if(*prog == (unsigned int) NULL){
 	return EINVAL;
+}
 
 	int numargs = 0;
 	int cnt = 0;
@@ -706,13 +708,17 @@ if(*prog == (unsigned int) NULL)
 			cnt++;
 	}
 	numargs = cnt;
+	// if (args[cnt] == NULL){
+	// 	return ENOENT;
+	// }
 
 	char **temp_args = kmalloc( (numargs + 1) * sizeof(char*));
 
 	int i = 0;
 
 	while (i < numargs){
-		
+		// if (temp_args[i] == (void *)0x40000000 || temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
+		// return EFAULT;
 		int length = strlen(args[i]);
 		length++;
 
