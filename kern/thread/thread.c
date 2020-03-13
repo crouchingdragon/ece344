@@ -39,7 +39,17 @@ static struct array *zombies;
 /* Total number of outstanding threads. Does not count zombies[]. */
 static int numthreads;
 
-static struct thread *threadmap[THREAD_MAX + 1] = {NULL};
+// static struct thread *threadmap[THREAD_MAX + 1] = {NULL};
+
+struct proc {
+	pid_t parent;
+	int exitcode;
+	int zomb; // 1 for has been exited, 0 for no
+	struct thread* who;
+	
+};
+
+struct proc processes[130];
 
 /*
 
@@ -82,28 +92,67 @@ thread_create(const char *name)
 	thread->t_vmspace = NULL;
 
 	thread->t_cwd = NULL;
+
+	// kprintf("current pid is %d \n", (int)curthread->t_pid);
 	
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
 	
 	int spl = splhigh();
-	/* Assign pid */
-    unsigned long i;
-    for (i = 0; i < THREAD_MAX; i++) {
-        if (!threadmap[i]) {
-            thread->t_pid = i;
-            threadmap[i] = thread;
-            break;
-        }
-    }
+	// /* Assign pid */
+    // unsigned long i;
+    // for (i = 0; i < THREAD_MAX; i++) {
+    //     if (threadmap[i] == NULL) { // if its empty
+    //         thread->t_pid = i;
+    //         threadmap[i] = thread;
+    //         break;
+    //     }
+    // }
+	// if (curthread != NULL && thread != curthread) thread->parent = curthread->t_pid;
+	// else thread->parent = (pid_t)0;
+	// thread->state = 0;
+
+	// int i;
+	// // start from 1
+	// for (i=1; i < 130; i++){
+	// 	// the pid is the index
+	// 	if (process[i] == NULL) {
+	// 		process[i]->who = thread;
+	// 		if (curthread != NULL && thread != curthread) thread->parent = curthread->pid;
+	// 		else thread->parent = -1;
+	// 		break;
+	// 	}
+	// }
+
+	int c = 0;
+
+	while(processes[c].parent != -2 && c < THREAD_MAX) {
+		c++;
+	}
+	
+	thread->pid = c;
+
+	if(c == 0) {
+		processes[c].parent = -1;
+		processes[c].zomb = 0;
+		processes[c].exitcode = -1;
+		processes[c].who = thread;
+	}
+	else {
+		//check if the curthread->pid is right
+		processes[c].parent = curthread->pid;
+		processes[c].zomb = 0;
+		processes[c].exitcode = -1;
+		processes[c].who = thread;
+	}
 
     splx(spl);
 
 	//****************************************************************************************************8
 
-	thread->exitcode = kmalloc(sizeof (int));
-    thread->waitonlock = lock_create("twlock");
-    thread->waitoncv = cv_create("twcv");
+	// thread->exitcode = kmalloc(sizeof (int));
+    // thread->waitonlock = lock_create("twlock");
+    // thread->waitoncv = cv_create("twcv");
 
 	return thread;
 }
@@ -135,10 +184,14 @@ thread_destroy(struct thread *thread)
 	kfree(thread->t_name);
 
 
-	assert(thread->t_pid >= 0 && thread->t_pid < THREAD_MAX);
+	// assert(thread->t_pid >= 0 && thread->t_pid < THREAD_MAX);
 
 
-    threadmap[thread->t_pid] = NULL;
+    // threadmap[thread->t_pid] = NULL;
+
+	
+
+
 
 	kfree(thread);
 }
@@ -222,7 +275,16 @@ thread_panic(void)
 struct thread *
 thread_bootstrap(void)
 {
+	
 	struct thread *me;
+
+	int i;
+	for(i = 0; i < THREAD_MAX; i++) {
+		processes[i].parent = -2;
+		processes[i].zomb = 0;
+		processes[i].exitcode = -1;
+		processes[i].who = NULL;
+	}
 
 	/* Create the data structures we need. */
 	sleepers = array_create();
@@ -444,6 +506,8 @@ mi_switch(threadstate_t nextstate)
 	else {
 		assert(nextstate==S_ZOMB);
 		result = array_add(zombies, cur);
+		// added for wait
+		// curthread->state = 1;
 	}
 	assert(result==0);
 
@@ -503,7 +567,7 @@ thread_exit(void)
 
 	splhigh();
 	//***************************************************************************************************************
-	thread_detach(curthread);
+	//thread_detach(curthread);
 
 	if (curthread->t_vmspace) {
 		/*
@@ -654,33 +718,57 @@ mi_threadstart(void *data1, unsigned long data2,
 	thread_exit();
 }
 
-struct thread *
-thread_getthepid(pid_t pid) {
+// struct thread *
+// thread_getthepid(pid_t pid) {
 
-    if (pid < 0 || pid >= THREAD_MAX) return NULL;
-    return threadmap[pid];
-}
+//     // if (pid < 0 || pid >= THREAD_MAX) return NULL;
+//     // return threadmap[pid];
+// }
 
-void
-thread_detach(struct thread *th) {
-    lock_acquire(th->waitonlock);
-    cv_broadcast(th->waitoncv, th->waitonlock);
-    lock_release(th->waitonlock);
-}
-
-// void thread_join1(struct thread * thread)
-// {
-//     lock_acquire(thread->waitonlock);
-//     cv_wait(thread->waitoncv, thread->waitonlock);
-//     lock_release(thread->waitonlock);
+// void
+// thread_detach(struct thread *th) {
+//     lock_acquire(th->waitonlock);
+//     cv_broadcast(th->waitoncv, th->waitonlock);
+//     lock_release(th->waitonlock);
 // }
 
 int thread_join(struct thread * th)
-{
-    lock_acquire(th->waitonlock);
-    cv_wait(th->waitoncv, th->waitonlock);
-    lock_release(th->waitonlock);
+// {
+//     lock_acquire(th->waitonlock);
+//     cv_wait(th->waitoncv, th->waitonlock);
+//     lock_release(th->waitonlock);
         
-       // (void)thread;  // suppress warning until code gets written
+       (void)thread;  // suppress warning until code gets written
         return 0;
 }
+
+void
+freeing_proc(pid_t pid){
+	// threadmap[pid] = NULL;
+	// set it to NULL
+	process[pid] = NULL;
+}
+
+void
+exit_setting(pid_t pid, int code){
+	// *threadmap[pid]->exitcode = code;
+	// threadmap[pid]->state = 1;
+	process[pid]->exitcode = code;
+	process[pid]->zomb = 1;
+}
+
+pid_t
+get_parentpid(pid_t pid){
+	return (process[pid]->parent);
+}
+
+int
+already_exited(pid_t pid){
+	return (process[pid]->zomb);
+}
+
+int
+get_exitcode(pid_t pid){
+	return (process[pid]->exitcode);
+}
+

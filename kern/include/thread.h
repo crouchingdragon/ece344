@@ -8,7 +8,6 @@
 /* Get machine-dependent stuff */
 #include <machine/pcb.h>
 
-
 struct addrspace;
 
 struct thread {
@@ -37,13 +36,8 @@ struct thread {
 	 * and is manipulated by the virtual filesystem (VFS) code.
 	 */
 	struct vnode *t_cwd;
-
-
-	pid_t t_pid;
-	//pid_t t_parent_pid;
-	struct lock *waitonlock;
-	struct cv *waitoncv;
-	int *exitcode;
+	// added
+	pid_t pid;
 
 };
 
@@ -132,5 +126,19 @@ void mi_threadstart(void *data1, unsigned long data2,
 /* Machine dependent context switch. */
 void md_switch(struct pcb *old, struct pcb *nu);
 
+void
+freeing_proc(pid_t pid);
+
+void
+exit_setting(pid_t pid, int code);
+
+pid_t
+get_parentpid(pid_t pid);
+
+int
+already_exited(pid_t pid);
+
+int
+get_exitcode(pid_t pid);
 
 #endif /* _THREAD_H_ */
