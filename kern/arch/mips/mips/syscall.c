@@ -87,11 +87,11 @@ mips_syscall(struct trapframe *tf)
 		break;
 		
 		case SYS__exit:
-		sys__exit(SYS__exit);
+		sys__exit(tf->tf_a0);
 		break;
 
 		case SYS___time:
-		err = sys__time((time_t *)tf->tf_a0, (unsigned long *) tf->tf_a1, &retval);
+		err = sys___time((userptr_t) tf->tf_a0, (userptr_t)tf->tf_a1, &retval); /*sys___time((time_t *)tf->tf_a0, (unsigned long *) tf->tf_a1, &retval);*/
 		break;
 
 		case SYS_read:
@@ -109,6 +109,14 @@ mips_syscall(struct trapframe *tf)
 		case SYS_getpid:
         err = sys_getpid(&retval);
         break;
+
+		case SYS_waitpid:
+        err = sys_waitpid((pid_t)tf->tf_a0, (int*)tf->tf_a1, tf->tf_a2, &retval);
+        break;
+
+		// case SYS_execv:
+        // err = sys_execv((char *) tf->tf_a0, (char **) tf->tf_a1);
+        // break;
 	    
 		default:
 		kprintf("Unknown syscall %d\n", callno);
@@ -178,11 +186,11 @@ sys_sleep(unsigned int seconds){
     return 0;
 }
 
-int
-sys_getpid(int *retval) {
-    *retval = curthread->t_pid;
-    return 0;
-}
+// int
+// sys_getpid(int *retval) {
+//     *retval = curthread->pid;
+//     return 0;
+// }
 
 // void
 // sys__exit(int exitcode) {
@@ -247,43 +255,87 @@ sys_getpid(int *retval) {
 // }
 
 
-int sys__time(time_t *sec, unsigned long *nanosec, int *retval){
+// int sys__time(time_t *sec, unsigned long *nanosec, int *retval){
 	
-	// declare destination variables
+// 	// declare destination variables
 	
-	time_t *seconds = kmalloc(sizeof(time_t));
-	unsigned long *nanoseconds = kmalloc(sizeof(unsigned long));
+// 	time_t *seconds = kmalloc(sizeof(time_t));
+// 	unsigned long *nanoseconds = kmalloc(sizeof(unsigned long));
 
-	//checking for error bad memory access
+// 	//checking for error bad memory access
 
-	if(nanosec != NULL){
-		if(copyin((const_userptr_t) nanosec, nanoseconds, sizeof(unsigned long)))
+// 	if(nanosec != NULL){
+// 		if(copyin((const_userptr_t) nanosec, nanoseconds, sizeof(unsigned long)))
+// 			return EFAULT;
+// 	}
+
+// 	if(sec != NULL){
+// 		if(copyin((const_userptr_t) sec, seconds, sizeof(time_t)))
+// 			return EFAULT;
+// 	}
+
+// 	gettime(seconds,(u_int32_t *) nanoseconds);
+// 	copyout(seconds, (userptr_t) sec, sizeof(time_t));
+// 	copyout(nanoseconds, (userptr_t) nanosec, sizeof (unsigned long));
+
+// 	*retval = *seconds;
+	
+
+// 	kfree(seconds);
+// 	kfree(nanoseconds);
+// 	return 0;
+// }
+
+
+
+
+
+
+
+int sys___time(userptr_t seconds, userptr_t nanoseconds, int * retval) {
+	time_t sec;
+	u_int32_t nanosec;
+
+	gettime(&sec, &nanosec);
+
+	//if seconds isnt null
+	if(seconds != NULL) {
+		int result = copyout(&sec, seconds, sizeof(time_t));
+		if(result != 0)
 			return EFAULT;
 	}
 
-	if(sec != NULL){
-		if(copyin((const_userptr_t) sec, seconds, sizeof(time_t)))
+	//if nanoseconds isnt null
+	if(nanoseconds != NULL) {
+		int result2 = copyout(&nanosec, nanoseconds, sizeof(unsigned long));
+		if(result2 != 0)
 			return EFAULT;
 	}
 
-	gettime(seconds,(u_int32_t *) nanoseconds);
-	copyout(seconds, (userptr_t) sec, sizeof(time_t));
-	copyout(nanoseconds, (userptr_t) nanosec, sizeof (unsigned long));
-
-	*retval = *seconds;
-	
-
-	kfree(seconds);
-	kfree(nanoseconds);
+	*retval =(int) sec;
 	return 0;
 }
 
-void
-sys__exit(int exitcode){
-	*curthread->exitcode = exitcode;
-	thread_exit();
-	return;
-}
+
+
+
+
+
+
+
+
+
+// void
+// sys__exit(int exitcode){
+	
+// 	//int spl = splhigh();
+// 	//*curthread->exitcode = exitcode;
+// 	exitcode = 0;
+// 	thread_exit();
+// 	//splx(spl);
+	
+// 	return;
+// }
 
 // int
 // sys_read(int fd, void *buf, size_t buflen, int *retval) {
@@ -408,6 +460,8 @@ sys__exit(int exitcode){
  
 //     //return 0;
 // }
+
+
 int
 sys_read(int filedest, char *buf, size_t size, int *retval) {
 
@@ -418,9 +472,12 @@ sys_read(int filedest, char *buf, size_t size, int *retval) {
 		return EBADF;
     }
 
-    //Check EFAULT
-
-    char *momo = kmalloc(size);
+	if (size != 1){
+		*retval = -1;
+		return EUNIMP;
+	}
+    
+	char *momo = kmalloc(size);
 
 
     if (copyin((const_userptr_t) buf, momo, size)) {
@@ -429,50 +486,27 @@ sys_read(int filedest, char *buf, size_t size, int *retval) {
         return EFAULT;
     }
 
-	if (size != 1){
-		*retval = -1;
-		return EUNIMP;
-	}
-    
+	char in = getch();
 
-	struct uio u;
-    struct vnode *v;
- 	char *con = kstrdup("con:");
-	
-   
-    vfs_open(con, O_RDONLY, &v);
-    kfree(con);
+	int check = copyout((const void *)&in, (userptr_t) buf, size);
 
-   
-    mk_kuio(&u, momo, size, 0, UIO_READ);
-
-
-
-    int check = VOP_READ(v, &u);
-
-    
-    if (check) {
+	if (check != 0) {
 
       
-	    vfs_close(v);
+		*retval = -1;
       
 	    kfree(momo);
       
-	    return check;   
+	    return EFAULT;   
 	}
 
-    
-    copyout(momo, (userptr_t) buf, u.uio_offset);
-    
-	
+
+	*retval = 1;
+
 	kfree(momo);
 
+	return 0;
 
-    vfs_close(v);
-
-   
-    *retval = u.uio_offset;
-    return 0;
 }
 
 int
@@ -484,54 +518,152 @@ sys_write(int filedest, const char *buf, size_t size, int *retval) {
         	return EBADF;
     }
 
-   
 
     char *momo = kmalloc(size);
     
-	
-	
 	if (copyin((const_userptr_t) buf, momo, size)) {
         kfree(momo);
         return EFAULT;
-    
-	
 	}
 
-    struct uio u;
-    struct vnode *v;
-    
-    char *con = kstrdup("con:");
-   
-   
-    vfs_open(con, O_WRONLY, &v);
-   
-    kfree(con);
 
- 
-    mk_kuio(&u, momo, size, 0, UIO_WRITE);
- 
-    int spl = splhigh();
-   
-    int check = VOP_WRITE(v, &u);
-  
-  
-    splx(spl);
+	unsigned int i;
+	unsigned int bits = 0;
+	int spl = splhigh();
+	for(i = 0; i < size ; i++){
+		putch(momo[bits]);
+		bits++;
+	}
+	splx(spl);
+	
+	*retval = bits;
+	kfree(momo);
 
-    if (check) {
-
-
-        vfs_close(v);
-        kfree(momo);
-	    return check;
-   
-    }
-
-    vfs_close(v);
-
-    kfree(momo);
-    *retval = size;
-    return 0;
+	return 0;
 }
+
+
+
+// int
+// sys_read(int filedest, char *buf, size_t size, int *retval) {
+
+//     //Check EBADF
+
+//     if (filedest != STDIN_FILENO) {
+//         *retval =-1;
+// 		return EBADF;
+//     }
+
+//     //Check EFAULT
+
+//     char *momo = kmalloc(size);
+
+
+//     if (copyin((const_userptr_t) buf, momo, size)) {
+//         kfree(momo);
+// 		*retval = -1;
+//         return EFAULT;
+//     }
+
+// 	if (size != 1){
+// 		*retval = -1;
+// 		return EUNIMP;
+// 	}
+    
+
+// 	struct uio u;
+//     struct vnode *v;
+//  	char *con = kstrdup("con:");
+	
+   
+//     vfs_open(con, O_RDONLY, &v);
+//     kfree(con);
+
+   
+//     mk_kuio(&u, momo, size, 0, UIO_READ);
+
+
+
+//     int check = VOP_READ(v, &u);
+
+    
+//     if (check) {
+
+      
+// 	    vfs_close(v);
+      
+// 	    kfree(momo);
+      
+// 	    return check;   
+// 	}
+
+    
+//     copyout(momo, (userptr_t) buf, u.uio_offset);
+    
+	
+// 	kfree(momo);
+
+
+//     vfs_close(v);
+
+   
+//     *retval = u.uio_offset;
+//     return 0;
+// }
+
+// int
+// sys_write(int filedest, const char *buf, size_t size, int *retval) {
+
+//     //Check EBADF
+//     if (filedest != STDOUT_FILENO) {
+// 		if(filedest != STDERR_FILENO)
+//         	return EBADF;
+//     }
+
+   
+//     char *momo = kmalloc(size);
+    
+// 	if (copyin((const_userptr_t) buf, momo, size)) {
+//         kfree(momo);
+//         return EFAULT;	
+// 	}
+
+//     struct uio u;
+//     struct vnode *v;
+    
+//     char *con = kstrdup("con:");
+   
+   
+//     vfs_open(con, O_WRONLY, &v);
+   
+//     kfree(con);
+
+ 
+//     mk_kuio(&u, momo, size, 0, UIO_WRITE);
+ 
+//     int spl = splhigh();
+   
+//     int check = VOP_WRITE(v, &u);
+  
+  
+//     splx(spl);
+
+//     if (check) {
+
+
+//         vfs_close(v);
+//         kfree(momo);
+// 	    return check;
+   
+//     }
+
+//     vfs_close(v);
+
+//     kfree(momo);
+//     *retval = size;
+//     return 0;
+// }
+
 
 int sys_fork(struct trapframe *tf, int *retval){
 
@@ -573,7 +705,179 @@ int sys_fork(struct trapframe *tf, int *retval){
 
 	}
 
-	*retval = rope->t_pid;
+	*retval = rope->pid;
 	splx(spl);
 	return 0;
 }
+
+// does it have to be aligned to join?
+// how do you check if its exited
+// check if its a zombie and then destroy it
+ 
+// int
+// sys_waitpid(pid_t pid, int* status, int options, int* retval){
+//  //   kprintf("GOT HERE 100 \n");
+//     // check for valid args
+//     // Does the pid we want to wait on exist/ is it valid? ESRCH
+//     // if it exists, is it our child? Can we wait? ECHILD
+   
+//     // make sure you're not trying to wait on yourself
+//     // make sure you're not waiting on your parent
+//     // options should be 0
+//     // curthread->child[pid] == NULL ||
+//     if (pid == curthread->t_pid || pid == curthread->parent || pid <= (pid_t)0 || pid >= (pid_t)34000 || options != (pid_t)0){
+//         return EINVAL;
+//     }
+//     // // is the status pointer a valid pointer (NULL, pointer to kernel...)
+//     // is the status pointer properly aligned (by 4 bytes)
+ 
+//     if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || ((int)&status % 4 != 0)){
+//         return EFAULT;
+//     }
+ 
+//     userptr_t u;
+//     u = kmalloc(sizeof(status));
+//     if (copyout(status, u, (size_t)sizeof(status)) || status == NULL || ((int)&status % 4 != 0)){
+//         kfree(u);
+//         return EFAULT;
+//     }
+//    // kprintf("GOT HERE 1 \n");
+ 
+//     // check if zombie
+//     // see if the process has exited (if exited, return zombie), else wait using cv_wait on exitcv
+ 
+//     // acquire the exit lock
+//     int spl;
+//     spl = splhigh();
+ 
+//    // kprintf("GOT HERE \n");
+//     struct thread* thr;
+//     thr = thread_getthepid(pid);
+//     // make sure threadmap isn't pointing to null
+//     if (thr == NULL){
+//         return EFAULT;
+//     }
+ 
+//     // if (thr->state){
+//     //  copyout(thr->exitcode, (userptr_t) status, 4);
+//     //  *retval = pid;
+//     //  status = thr->exitcode;
+//     //  return 0;
+//     // }
+ 
+//     // not a zombie yet
+//     while (thr->state == 0);
+ 
+//     copyout(thr->exitcode, (userptr_t) status, 4);
+//     *retval = pid;
+//     status = thr->exitcode;
+//     sys__exit(*status);
+//     splx(spl);
+//     return 0;
+ 
+ 
+//     // // if process is zombie/has exited
+//     // if (thr->state == 1){
+//     //  // return zombie pid
+//     //  *retval = pid;
+//     //  status = thr->exitcode;
+//     //  // go to exit
+//     //  sys__exit(*thr->exitcode);
+//     //  // what happens to interrupt?
+//     //  splx(spl);
+//     //  return 0;
+//     // }
+ 
+//     // // get exit code
+//     // // destroy the child process's structure, free slot in array (every child only has one parent)
+//     // status = thr->exitcode;
+//     // *retval = pid;
+//     // // release exit lock
+//     // sys__exit(*thr->exitcode);
+ 
+//     // splx(spl);
+//     // return 0;
+// }
+
+
+
+int
+sys_waitpid(pid_t pid, int* status, int options, int* retval){
+    if (pid == curthread->pid || pid == get_parentpid(pid) || pid <= (pid_t)0 || pid >= (pid_t)34000 || options != (pid_t)0){
+		*retval = -1;
+        return EINVAL;
+    }
+    if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || ((int)&status % 4 != 0)){
+		*retval = -1;
+        return EFAULT;
+    }
+	if (get_pid() == 0) {
+		*retval = -1;
+		return EINVAL;
+	}
+ 
+    // acquire the exit lock
+    int spl;
+    spl = splhigh();
+ 
+    // if a thread has already exited (zombie), then just return its values
+    if (already_exited(pid)){
+        *status = get_exitcode(pid);
+		freeing_proc(pid);
+        *retval = 0;
+        splx(spl);
+        return 0;
+    }
+
+	// int spl;
+	// // trying a different order to things
+	// if (already_exited(pid)){
+	// 	*status = get_exitcode(pid);
+	// 	//reap
+	// 	// idk what to do here, used cvs
+	// 	freeing_proc(pid);
+	// 	*retval = pid;
+	// 	return 0;
+	// }
+
+	// //else wait for child to exit
+	// while (!already_exited(pid)){
+	// 	spl = splhigh(); // but doesn't make sense here
+	// }
+
+	// splx(spl);
+
+	// //reap
+	// *status = get_exitcode(pid);
+	// freeing_proc(pid);
+	// *retval = pid;
+   
+    // Else wait for it to exit and free its content
+    while (!already_exited(pid));
+ 
+    *status = get_exitcode(pid);
+    *retval = 0;
+    freeing_proc(pid);
+ 
+    splx(spl);
+    return 0;
+}
+ 
+void
+sys__exit(int exitcode){
+ 
+    int spl;
+    spl = splhigh();
+ 
+    exit_setting(curthread->pid, exitcode);
+ 
+    splx(spl);
+    thread_exit();
+}
+ 
+int
+sys_getpid(int *retval) {
+    *retval = (int)curthread->pid;
+    return 0;
+}
+

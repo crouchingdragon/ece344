@@ -39,11 +39,12 @@ struct thread {
 	struct vnode *t_cwd;
 
 
-	pid_t t_pid;
-	//pid_t t_parent_pid;
-	struct lock *waitonlock;
-	struct cv *waitoncv;
-	int *exitcode;
+	 pid_t pid;
+	// pid_t t_parent_pid;
+	// struct lock *waitonlock;
+	// struct cv *waitoncv;
+	// int *exitcode;
+	// int state;
 
 };
 
@@ -122,7 +123,26 @@ int thread_hassleepers(const void *addr);
  */
 struct thread *thread_getthepid(pid_t pid);
 
-void thread_detach(struct thread *th);
+
+void
+freeing_proc(pid_t pid);
+ 
+void
+exit_setting(pid_t pid, int code);
+ 
+pid_t
+get_parentpid(pid_t pid);
+ 
+int
+already_exited(pid_t pid);
+ 
+int
+get_exitcode(pid_t pid);
+
+pid_t
+get_pid(void);
+
+
 
 
 /* Machine independent entry point for new threads. */

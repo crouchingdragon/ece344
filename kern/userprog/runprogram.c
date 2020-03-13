@@ -73,4 +73,3 @@ runprogram(char *progname)
 	panic("md_usermode returned\n");
 	return EINVAL;
 }
-
