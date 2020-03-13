@@ -60,6 +60,7 @@ mips_syscall(struct trapframe *tf)
 	int callno;
 	int32_t retval;
 	int err;
+	int spl;
 
 	assert(curspl==0);
 
@@ -111,7 +112,9 @@ mips_syscall(struct trapframe *tf)
         break;
 
         case SYS_waitpid:
+		spl = splhigh();
         err = sys_waitpid((pid_t)tf->tf_a0, (int*)tf->tf_a1, tf->tf_a2, &retval);
+		splx(spl);
         break;
 
 		case SYS_execv:
@@ -617,7 +620,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
         return EINVAL;
     }
 	
-    if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || ((int)&status % 4 != 0)){
+    if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || (((unsigned)status) % 4 != 0)){
 		*retval = -1;
         splx(spl);
         // V_enter(pid);
@@ -689,8 +692,8 @@ sys_getpid(int *retval) {
 
 int
 sys_execv(const char *prog, char **args){
-
-if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned int)args ==  0x40000000 || (unsigned int) args == MIPS_KSEG0 ){
+if(prog == NULL || args == NULL) return EFAULT;
+if(prog == NULL || (void*) prog == (void*)0x40000000 || (void*) prog == (void*)MIPS_KSEG0 ||  args == NULL ||  (void*)args == (void*) 0x40000000 || (void* ) args == (void*) MIPS_KSEG0 ){
 	return EFAULT;
 }
 
@@ -717,8 +720,10 @@ if(*prog == (unsigned int) NULL){
 	int i = 0;
 
 	while (i < numargs){
-		// if (temp_args[i] == (void *)0x40000000 || temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
-		// return EFAULT;
+		
+		if ((void*)temp_args[i] == (void *)0x40000000 || (void*)temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
+			return EFAULT;
+
 		int length = strlen(args[i]);
 		length++;
 
