@@ -592,45 +592,33 @@ int sys_fork(struct trapframe *tf, int *retval){
 
 int
 sys_waitpid(pid_t pid, int* status, int options, int* retval){
-    // acquire the exit lock
-    int spl;
-    spl = splhigh();
-    // P_enter(pid);
-
-
+	if(options != 0) {
+		return EINVAL;
+	}
+  if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || (((unsigned)status) % 4 != 0)){
+		*retval = -1;
+        return EFAULT;
+    }
 	
     if (reap(pid)){
         *retval = -1;
-        // V_enter(pid);
-		splx(spl);
         return EINVAL;
     }
 
-    if (curthread->parent == get_parentpid(pid)){
+    if (curthread->parent != get_parentpid(pid)){
         *retval = -1;
-        // V_enter(pid);
-		splx(spl);
         return EINVAL;
     }
 
-    if (pid == curthread->pid || pid == get_parentpid(pid) || pid <= (pid_t)0 || pid >= (pid_t)34000 || options != (pid_t)0){
+    if (pid == curthread->pid || pid != get_parentpid(pid) || pid <= (pid_t)0 || pid >= (pid_t)34000 ){
 		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
         return EINVAL;
     }
 	
-    if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || (((unsigned)status) % 4 != 0)){
-		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
-        return EFAULT;
-    }
+  
 
-	if (get_pid() == -2) {
+	if (get_parentpid(pid) == -2) {
 		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
 		return EINVAL;
 	}
  
@@ -639,14 +627,11 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
         *status = get_exitcode(pid);
 		freeing_proc(pid);
         *retval = 0;
-        splx(spl);
-        // V_enter(pid);
         return 0;
     }
 
     // Else wait for it to exit and free its content
     while (!already_exited(pid)){
-        // thread_yield();
         P_done(pid);
     }
 
@@ -655,8 +640,6 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
     *retval = 0;
     freeing_proc(pid);
  
-    // V_enter(pid);
-    splx(spl);
     return 0;
 }
 
@@ -692,13 +675,42 @@ sys_getpid(int *retval) {
 
 int
 sys_execv(const char *prog, char **args){
-if(prog == NULL || args == NULL) return EFAULT;
-if(prog == NULL || (void*) prog == (void*)0x40000000 || (void*) prog == (void*)MIPS_KSEG0 ||  args == NULL ||  (void*)args == (void*) 0x40000000 || (void* ) args == (void*) MIPS_KSEG0 ){
+//if(prog == NULL || args == NULL) return EFAULT;
+
+if(prog == NULL){
+	return EFAULT;
+}
+if((void*) prog == (void*)0x40000000 || (void*) prog == (void*)MIPS_KSEG0){
+	return EFAULT;	
+} 
+
+//check program length isnt 0
+int programlength = strlen(prog);
+if(programlength == 0) {
+	return EINVAL;
+}
+if(  args == NULL){
+	return EFAULT;
+}
+ 
+if( (void*)args == (void*) 0x40000000 || (void* ) args == (void*) MIPS_KSEG0){
 	return EFAULT;
 }
 
 if(*prog == (unsigned int) NULL){
 	return EINVAL;
+}
+
+//check invalid arglist
+char *arg_list = (char*) kmalloc(sizeof(char**));
+if(copyin((const_userptr_t)args, arg_list, sizeof(char*))) {
+	return EFAULT;
+}
+
+//check invalid program name 
+char *program_name = (char*) kmalloc(programlength*sizeof(char*)+1);
+if(copyinstr((userptr_t)prog, program_name, programlength, NULL)) {
+	return ENOMEM;
 }
 
 	int numargs = 0;
@@ -721,7 +733,7 @@ if(*prog == (unsigned int) NULL){
 
 	while (i < numargs){
 		
-		if ((void*)temp_args[i] == (void *)0x40000000 || (void*)temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
+		if ((void*)temp_args[i] == (void *)0x40000000 || (void*)temp_args[i] ==  (void*)MIPS_KSEG0 )
 			return EFAULT;
 
 		int length = strlen(args[i]);
