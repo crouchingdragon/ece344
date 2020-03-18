@@ -590,60 +590,82 @@ int sys_fork(struct trapframe *tf, int *retval){
 int
 sys_waitpid(pid_t pid, int* status, int options, int* retval){
     // acquire the exit lock
-    int spl;
-    spl = splhigh();
+    // int spl;
+    // spl = splhigh();
     // P_enter(pid);
 
-
-	
-    if (reap(pid)){
-        *retval = -1;
-        // V_enter(pid);
-		splx(spl);
+   if(options != 0) {
+	   *retval = -1;
+	//    splx(spl);
         return EINVAL;
     }
-
-    if (curthread->parent == get_parentpid(pid)){
-        *retval = -1;
-        // V_enter(pid);
-		splx(spl);
-        return EINVAL;
-    }
-
-    if (pid == curthread->pid || pid == get_parentpid(pid) || pid <= (pid_t)0 || pid >= (pid_t)34000 || options != (pid_t)0){
+	if(status == NULL){
 		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
-        return EINVAL;
-    }
-	
-    if (status == NULL || (unsigned int)status == 0x40000000 || (unsigned int)status == 0x80000000 || ((int)&status % 4 != 0)){
-		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
+		// splx(spl);
         return EFAULT;
     }
-
-	if (get_pid() == -2) {
+	if((unsigned)status == 0x40000000){
 		*retval = -1;
-        splx(spl);
-        // V_enter(pid);
-		return EINVAL;
-	}
+		// splx(spl);
+        return EFAULT;
+    }
+	if((unsigned)status == 0x80000000){
+		*retval = -1;
+		// splx(spl);
+        return EFAULT;
+    }
+	// unaligned status
+	if((unsigned)status % 4 != 0){
+		*retval = -1;
+		// splx(spl);
+        return EFAULT;
+    }
+    if (reap(pid)){
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
+	// waiting on yourself
+	if (pid == curthread->pid){
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
+	if (get_parentpid(pid) == -2) {
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
+    if (curthread->pid != get_parentpid(pid)){
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
+	if (pid <= 0){
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
+	if (pid >= 34000){
+        *retval = -1;
+		// splx(spl);
+        return EINVAL;
+    }
  
     // if a thread has already exited (zombie), then just return its values
     if (already_exited(pid)){
         *status = get_exitcode(pid);
 		freeing_proc(pid);
         *retval = 0;
-        splx(spl);
+        // splx(spl);
         // V_enter(pid);
         return 0;
     }
-
+	//FIXME: Mabye I should disable interrupts here, idk. Check on what it does to fork.
+	// int spl;
+	// spl = splhigh();
     // Else wait for it to exit and free its content
     while (!already_exited(pid)){
-        // thread_yield();
         P_done(pid);
     }
 
@@ -653,7 +675,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
     freeing_proc(pid);
  
     // V_enter(pid);
-    splx(spl);
+    // splx(spl);
     return 0;
 }
 
@@ -690,27 +712,50 @@ sys_getpid(int *retval) {
 int
 sys_execv(const char *prog, char **args){
 
-if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned int)args ==  0x40000000 || (unsigned int) args == MIPS_KSEG0 ){
+// if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned)args ==  0x40000000 || (unsigned) args == MIPS_KSEG0 ){
+// 	return EFAULT;
+// } COMMENTED THIS STUFF OUT
+
+// Seeing which ones do stuff
+if(prog == NULL){
 	return EFAULT;
 }
-
-if(*prog == (unsigned int) NULL){
+if((unsigned)prog == 0x40000000){
+	return EFAULT;
+}
+if((unsigned)prog == MIPS_KSEG0){
+	return EFAULT;
+}
+// FIXME: Added this for kicks
+if(args == NULL){
+	return EFAULT;
+}
+if((unsigned)args == 0x40000000){
+	return EFAULT;
+}
+if((unsigned)args == MIPS_KSEG0){
+	return EFAULT;
+}
+if(*prog == 0){ // changed
 	return EINVAL;
 }
 
 	int numargs = 0;
 	int cnt = 0;
 // counting the nagrs
-	while( args[cnt] != NULL){
+	while(args[cnt] != NULL){
 
-		if ((unsigned int) args[numargs] == MIPS_KSEG0 || (unsigned int) args[numargs] == 0x40000000)
+		// if ((unsigned) args[numargs] == MIPS_KSEG0 || (unsigned) args[numargs] == 0x40000000){
+		// 	return EFAULT;
+		// }
+
+		// Just for kicks
+		if((unsigned)args[cnt] == 0x40000000){
 			return EFAULT;
-			cnt++;
+		}
+		cnt++;
 	}
 	numargs = cnt;
-	// if (args[cnt] == NULL){
-	// 	return ENOENT;
-	// }
 
 	char **temp_args = kmalloc( (numargs + 1) * sizeof(char*));
 
@@ -719,6 +764,7 @@ if(*prog == (unsigned int) NULL){
 	while (i < numargs){
 		// if (temp_args[i] == (void *)0x40000000 || temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
 		// return EFAULT;
+
 		int length = strlen(args[i]);
 		length++;
 
