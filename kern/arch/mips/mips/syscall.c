@@ -60,6 +60,7 @@ mips_syscall(struct trapframe *tf)
 	int callno;
 	int32_t retval;
 	int err;
+	int spl;
 
 	assert(curspl==0);
 
@@ -111,7 +112,9 @@ mips_syscall(struct trapframe *tf)
         break;
 
         case SYS_waitpid:
+		spl = splhigh();
         err = sys_waitpid((pid_t)tf->tf_a0, (int*)tf->tf_a1, tf->tf_a2, &retval);
+		splx(spl);
         break;
 
 		case SYS_execv:
@@ -711,6 +714,7 @@ sys_getpid(int *retval) {
 
 int
 sys_execv(const char *prog, char **args){
+//if(prog == NULL || args == NULL) return EFAULT;
 
 // if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned)args ==  0x40000000 || (unsigned) args == MIPS_KSEG0 ){
 // 	return EFAULT;
@@ -738,6 +742,18 @@ if((unsigned)args == MIPS_KSEG0){
 }
 if(*prog == 0){ // changed
 	return EINVAL;
+}
+
+//check invalid arglist
+char *arg_list = (char*) kmalloc(sizeof(char**));
+if(copyin((const_userptr_t)args, arg_list, sizeof(char*))) {
+	return EFAULT;
+}
+
+//check invalid program name 
+char *program_name = (char*) kmalloc(programlength*sizeof(char*)+1);
+if(copyinstr((userptr_t)prog, program_name, programlength, NULL)) {
+	return ENOMEM;
 }
 
 	int numargs = 0;
