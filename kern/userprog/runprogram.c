@@ -22,7 +22,7 @@
  * Calls vfs_open on progname and thus may destroy it.
  */
 int
-runprogram(char *progname)
+runprogram(char *progname, char** args, int nargs)
 {
 	struct vnode *v;
 	vaddr_t entrypoint, stackptr;
@@ -65,12 +65,49 @@ runprogram(char *progname)
 		return result;
 	}
 
+
+
+
+userptr_t ptr[nargs];
+	 int i;
+    for (i=nargs-1; i >= 0; i--) {
+    	
+        int len;
+        if ( (strlen(args[i])+1) % 4 == 0 ) {
+          len = strlen(args[i])+1;
+        } else {
+           len = (strlen(args[i])+1) + (4-((strlen(args[i])+1)%4));
+        }
+
+        stackptr -= len;
+        result = copyoutstr(args[i], (userptr_t) stackptr, strlen(args[i])+1, NULL);
+        if (result) return result;
+        ptr[i] = (userptr_t )stackptr;
+    }
+
+	for (i=nargs-1; i >= 0; i--) {
+      stackptr -= 4;
+      result = copyout(ptr+i, (userptr_t) stackptr, 4);
+      if (result) return result;
+    }
+
+
+
+	// (void)args;
+	// (void)nargs;
+
+
+
+
+
+
+
+
+
 	/* Warp to user mode. */
-	md_usermode(0 /*argc*/, NULL /*userspace addr of argv*/,
-		    stackptr, entrypoint);
+	md_usermode(nargs,(userptr_t)stackptr, stackptr, entrypoint);
 	
 	/* md_usermode does not return */
 	panic("md_usermode returned\n");
 	return EINVAL;
 }
-
