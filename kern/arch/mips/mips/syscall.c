@@ -589,66 +589,51 @@ int sys_fork(struct trapframe *tf, int *retval){
 
 int
 sys_waitpid(pid_t pid, int* status, int options, int* retval){
-    // acquire the exit lock
-    // int spl;
-    // spl = splhigh();
-    // P_enter(pid);
 
    if(options != 0) {
 	   *retval = -1;
-	//    splx(spl);
         return EINVAL;
     }
 	if(status == NULL){
 		*retval = -1;
-		// splx(spl);
         return EFAULT;
     }
 	if((unsigned)status == 0x40000000){
 		*retval = -1;
-		// splx(spl);
         return EFAULT;
     }
 	if((unsigned)status == 0x80000000){
 		*retval = -1;
-		// splx(spl);
         return EFAULT;
     }
 	// unaligned status
 	if((unsigned)status % 4 != 0){
 		*retval = -1;
-		// splx(spl);
         return EFAULT;
     }
     if (reap(pid)){
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
 	// waiting on yourself
 	if (pid == curthread->pid){
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
 	if (get_parentpid(pid) == -2) {
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
     if (curthread->pid != get_parentpid(pid)){
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
 	if (pid <= 0){
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
 	if (pid >= 34000){
         *retval = -1;
-		// splx(spl);
         return EINVAL;
     }
  
@@ -657,50 +642,32 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
         *status = get_exitcode(pid);
 		freeing_proc(pid);
         *retval = 0;
-        // splx(spl);
-        // V_enter(pid);
         return 0;
     }
-	//FIXME: Mabye I should disable interrupts here, idk. Check on what it does to fork.
-	// int spl;
-	// spl = splhigh();
-    // Else wait for it to exit and free its content
+	// Why does this work?
     while (!already_exited(pid)){
         P_done(pid);
     }
 
- 
     *status = get_exitcode(pid);
     *retval = 0;
     freeing_proc(pid);
- 
-    // V_enter(pid);
-    // splx(spl);
+
     return 0;
 }
-
-// wait pid
-// if it has already exited, then just return exit vals and call free function
-// make sure that if it has any children, the children exit before it
-// wait until it actually does exit
-
  
 void
 sys__exit(int exitcode){
-    // P_enter(curthread->pid);
-
+	// Could use the semaphore 'enter' instead of disabling interrupts
     int spl;
     spl = splhigh();
- 
+
+	// Decrementing count to allow access to P in waitpid
     exit_setting(curthread->pid, exitcode);
     V_done(curthread->pid);
-    // thread_wake
-    // Call V
  
     splx(spl);
-    // V_enter(curthread->pid);
     thread_exit();
-    // V_enter(curthread->pid);
 }
  
 int
@@ -712,44 +679,32 @@ sys_getpid(int *retval) {
 int
 sys_execv(const char *prog, char **args){
 
-// if(prog == NULL || (unsigned int) prog == 0x40000000 || (unsigned int) prog == MIPS_KSEG0 ||  *args == NULL ||  (unsigned)args ==  0x40000000 || (unsigned) args == MIPS_KSEG0 ){
-// 	return EFAULT;
-// } COMMENTED THIS STUFF OUT
-
-// Seeing which ones do stuff
-if(prog == NULL){
-	return EFAULT;
-}
-if((unsigned)prog == 0x40000000){
-	return EFAULT;
-}
-if((unsigned)prog == MIPS_KSEG0){
-	return EFAULT;
-}
-// FIXME: Added this for kicks
-if(args == NULL){
-	return EFAULT;
-}
-if((unsigned)args == 0x40000000){
-	return EFAULT;
-}
-if((unsigned)args == MIPS_KSEG0){
-	return EFAULT;
-}
-if(*prog == 0){ // changed
-	return EINVAL;
-}
+	if(prog == NULL){
+		return EFAULT;
+	}
+	if((unsigned)prog == 0x40000000){
+		return EFAULT;
+	}
+	if((unsigned)prog == MIPS_KSEG0){
+		return EFAULT;
+	}
+	if(args == NULL){
+		return EFAULT;
+	}
+	if((unsigned)args == 0x40000000){
+		return EFAULT;
+	}
+	if((unsigned)args == MIPS_KSEG0){
+		return EFAULT;
+	}
+	if(*prog == 0){
+		return EINVAL;
+	}
 
 	int numargs = 0;
 	int cnt = 0;
-// counting the nagrs
+	// counting the nagrs
 	while(args[cnt] != NULL){
-
-		// if ((unsigned) args[numargs] == MIPS_KSEG0 || (unsigned) args[numargs] == 0x40000000){
-		// 	return EFAULT;
-		// }
-
-		// Just for kicks
 		if((unsigned)args[cnt] == 0x40000000){
 			return EFAULT;
 		}
@@ -762,9 +717,6 @@ if(*prog == 0){ // changed
 	int i = 0;
 
 	while (i < numargs){
-		// if (temp_args[i] == (void *)0x40000000 || temp_args[i] ==  (void*)MIPS_KSEG0 || temp_args[i] == NULL)
-		// return EFAULT;
-
 		int length = strlen(args[i]);
 		length++;
 
