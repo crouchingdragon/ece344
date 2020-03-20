@@ -659,14 +659,19 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
 void
 sys__exit(int exitcode){
 	// Could use the semaphore 'enter' instead of disabling interrupts
-    int spl;
-    spl = splhigh();
+    // int spl;
+    // spl = splhigh();
+
+	/* changed to semaphores because asst4 piazza notes said not to rely on interrupts */
+	P_enter(curthread->pid);
 
 	// Decrementing count to allow access to P in waitpid
     exit_setting(curthread->pid, exitcode);
     V_done(curthread->pid);
- 
-    splx(spl);
+
+	V_enter(curthread->pid);
+
+    // splx(spl);
     thread_exit();
 }
  

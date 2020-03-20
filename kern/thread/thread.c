@@ -739,25 +739,18 @@ int thread_join(struct thread * th)
         return 0;
 }
 
+/* waitpid helper functions */
 void
 freeing_proc(pid_t pid){
-    // threadmap[pid] = NULL;
-    // set it to NULL
     process[pid].exitcode = -1;
 	process[pid].parent = -2;
 	process[pid].who = NULL;
 	process[pid].zomb = 0;
 	process[pid].reap = 1;
-
-	// sem_destroy(process[pid].enter);
-	// sem_destroy(process[pid].done);
-
 }
  
 void
 exit_setting(pid_t pid, int code){
-    // *threadmap[pid]->exitcode = code;
-    // threadmap[pid]->state = 1;
     process[pid].exitcode = code;
     process[pid].zomb = 1;
 }
