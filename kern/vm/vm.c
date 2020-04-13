@@ -7,7 +7,9 @@
 #include <vm.h>
 #include <machine/spl.h>
 #include <machine/tlb.h>
-
+#include <synch.h>
+#include <array.h>
+#include <elf.h>
 /*
  * Note! If OPT_DUMBVM is set, as is the case until you start the VM
  * assignment, this file is not compiled or linked or in any way
