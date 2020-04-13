@@ -30,9 +30,10 @@ file        lib/copyinout.c			# copyin/out et al.
 # of a VM system. It is just barely capable of running a single userlevel
 # program as long as that program's not very large.
 #
-defoption   dumbvm
-optfile     dumbvm  arch/mips/mips/dumbvm.c
-
+#defoption   dumbvm
+#optfile     dumbvm  arch/mips/mips/dumbvm.c
+file vm/vm.c
+file vm/addrspace.c
 #
 # Get the files and options for LAMEbus devices.
 #
