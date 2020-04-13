@@ -122,5 +122,8 @@ void fault_stack(int faulttype, vaddr_t faultaddress, int* retval);
 
 void fault_heap(int faulttype, vaddr_t faultaddress, int* retval, struct addrspace* as);
 
+static
+paddr_t
+getppages(unsigned long npages);
 #endif /* _VM_H_ */
 

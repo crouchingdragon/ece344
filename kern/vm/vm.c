@@ -221,235 +221,235 @@ free_kpages(vaddr_t addr)
 	if (int_flag) V(coremap_access);
 }
 
-int
-vm_fault(int faulttype, vaddr_t faultaddress)
-{
+// int
+// vm_fault(int faulttype, vaddr_t faultaddress)
+// {
 	
-	struct addrspace *as;
-	int retval;
-	u_int32_t permission = 0;
-	int spl;
+// 	struct addrspace *as;
+// 	int retval;
+// 	u_int32_t permission = 0;
+// 	int spl;
 
-	spl = splhigh();
+// 	spl = splhigh();
 
-	faultaddress &= PAGE_FRAME;
-	//FIXME: Freaks out and panicks here
-	if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
-    	splx(spl);
-    	return EFAULT;
-    }
-	if(faulttype == VM_FAULT_READONLY){
-		splx(spl);
-		return EFAULT;
-	}
-	if(faulttype != VM_FAULT_READ){
-		splx(spl);
-		return EINVAL;
-	}
-	if(faulttype != VM_FAULT_WRITE){
-		splx(spl);
-		return EINVAL;
-	}
+// 	faultaddress &= PAGE_FRAME;
+// 	//FIXME: Freaks out and panicks here
+// 	if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
+//     	splx(spl);
+//     	return EFAULT;
+//     }
+// 	if(faulttype == VM_FAULT_READONLY){
+// 		splx(spl);
+// 		return EFAULT;
+// 	}
+// 	if(faulttype != VM_FAULT_READ){
+// 		splx(spl);
+// 		return EINVAL;
+// 	}
+// 	if(faulttype != VM_FAULT_WRITE){
+// 		splx(spl);
+// 		return EINVAL;
+// 	}
 
-	as = curthread->t_vmspace;
+// 	as = curthread->t_vmspace;
 
-	if (as == NULL) {
-		/*
-		 * No address space set up. This is probably a kernel
-		 * fault early in boot. Return EFAULT so as to panic
-		 * instead of getting into an infinite faulting loop.
-		 */
-		return EFAULT;
-	}
+// 	if (as == NULL) {
+// 		/*
+// 		 * No address space set up. This is probably a kernel
+// 		 * fault early in boot. Return EFAULT so as to panic
+// 		 * instead of getting into an infinite faulting loop.
+// 		 */
+// 		return EFAULT;
+// 	}
 
-	vaddr_t start_vm, end_vm;
+// 	vaddr_t start_vm, end_vm;
 
-	int i;
+// 	int i;
 
-	for(i = 0; i < array_getnum(as->as_regions); i++){
-		struct as_region *current = array_getguy(as->as_regions, i);
-		end_vm = current->bottom_vm;
-		start_vm = end_vm + current->npgs * PAGE_SIZE;
-		if(faultaddress >= end_vm && faultaddress < start_vm){
-			found = 1;
-			permission = (current->region_permis);
-			retval = faults(faultaddress, permission);
-			splx(spl);
-			return retval;
-		}
-	}
-//check stack if not found
-	if(!found){
-		fault_stack(faulttype, faultaddress, &retval);
-		if(found){
-			splx(spl);
-			return retval;
-		}
-	}
-// check heap if not found
-	if(!found){
-		fault_heap(faulttype, faultaddress, &retval, as);
-		if(found){
-			splx(spl);
-			// return err;
-			return EFAULT; // not sure if this should be efault, but err above is undeclared
-		}
-	}
+// 	for(i = 0; i < array_getnum(as->as_regions); i++){
+// 		struct as_region *current = array_getguy(as->as_regions, i);
+// 		end_vm = current->bottom_vm;
+// 		start_vm = end_vm + current->npgs * PAGE_SIZE;
+// 		if(faultaddress >= end_vm && faultaddress < start_vm){
+// 			found = 1;
+// 			permission = (current->region_permis);
+// 			retval = faults(faultaddress, permission);
+// 			splx(spl);
+// 			return retval;
+// 		}
+// 	}
+// //check stack if not found
+// 	if(!found){
+// 		fault_stack(faulttype, faultaddress, &retval);
+// 		if(found){
+// 			splx(spl);
+// 			return retval;
+// 		}
+// 	}
+// // check heap if not found
+// 	if(!found){
+// 		fault_heap(faulttype, faultaddress, &retval, as);
+// 		if(found){
+// 			splx(spl);
+// 			// return err;
+// 			return EFAULT; // not sure if this should be efault, but err above is undeclared
+// 		}
+// 	}
 
-	splx(spl);
-	return EFAULT;
-}
+// 	splx(spl);
+// 	return EFAULT;
+// }
 
-void fault_stack(int faulttype, vaddr_t faultaddress, int* retval){
-	u_int32_t permissions = 0;
-	vaddr_t start_vm, end_vm;
-	start_vm = MIPS_KSEG0;
-	end_vm = start_vm - 24 * PAGE_SIZE;
-	if(faultaddress >= end_vm && faultaddress < start_vm){
-		found = 1;
-		permissions = 6;
-		*retval = faults(faultaddress, permissions);
-	}
-	(void)faulttype;
-}
+// void fault_stack(int faulttype, vaddr_t faultaddress, int* retval){
+// 	u_int32_t permissions = 0;
+// 	vaddr_t start_vm, end_vm;
+// 	start_vm = MIPS_KSEG0;
+// 	end_vm = start_vm - 24 * PAGE_SIZE;
+// 	if(faultaddress >= end_vm && faultaddress < start_vm){
+// 		found = 1;
+// 		permissions = 6;
+// 		*retval = faults(faultaddress, permissions);
+// 	}
+// 	(void)faulttype;
+// }
 
-void fault_heap(int faulttype, vaddr_t faultaddress, int* retval, struct addrspace* as){
-	u_int32_t permissions = 0;
-	vaddr_t start_vm, end_vm;
-	end_vm = as->start_heap;
-	start_vm = as->end_heap;
-	if(faultaddress >= end_vm && faultaddress < start_vm){
-		found = 1;
-		permissions = 6;
-		*retval = faults(faultaddress, permissions);	
-	}
-	(void)faulttype;
-}
+// void fault_heap(int faulttype, vaddr_t faultaddress, int* retval, struct addrspace* as){
+// 	u_int32_t permissions = 0;
+// 	vaddr_t start_vm, end_vm;
+// 	end_vm = as->start_heap;
+// 	start_vm = as->end_heap;
+// 	if(faultaddress >= end_vm && faultaddress < start_vm){
+// 		found = 1;
+// 		permissions = 6;
+// 		*retval = faults(faultaddress, permissions);	
+// 	}
+// 	(void)faulttype;
+// }
 
-int faults(vaddr_t faultaddress, u_int32_t permissions) {
+// int faults(vaddr_t faultaddress, u_int32_t permissions) {
 
-	int spl = splhigh();
-	// vaddr_t vaddr;
-	paddr_t paddr;
-    u_int32_t tlb_end, tlb_start;
+// 	int spl = splhigh();
+// 	// vaddr_t vaddr;
+// 	paddr_t paddr;
+//     u_int32_t tlb_end, tlb_start;
 
- 	//function to see if second level page table exists or not, handles accordingly
- 	check_levels(faultaddress, &paddr);
+//  	//function to see if second level page table exists or not, handles accordingly
+//  	check_levels(faultaddress, &paddr);
 
-	//load into TLB
-	if (permissions & PF_W) {
-		paddr |= TLBLO_DIRTY;  
-	}
+// 	//load into TLB
+// 	if (permissions & PF_W) {
+// 		paddr |= TLBLO_DIRTY;  
+// 	}
 
-	int k;	
-	for(k = 0; k < NUM_TLB; k++){
-		TLB_Read(&tlb_end, &tlb_start, k);
-		// skip valid ones
-		if(tlb_start & TLBLO_VALID){
-			continue;
-		}
-		//fill first empty one
-		tlb_end = faultaddress;
-		tlb_start = paddr | TLBLO_VALID; 
-		TLB_Write(tlb_end, tlb_start, k);
-		splx(spl);
-		return 0;
-	}
-	// no invalid ones => pick entry and random and expel it
-	tlb_end = faultaddress;
-	tlb_start = paddr | TLBLO_VALID;
-	TLB_Random(tlb_end, tlb_start);
-	splx(spl);
-	return 0;
-}
+// 	int k;	
+// 	for(k = 0; k < NUM_TLB; k++){
+// 		TLB_Read(&tlb_end, &tlb_start, k);
+// 		// skip valid ones
+// 		if(tlb_start & TLBLO_VALID){
+// 			continue;
+// 		}
+// 		//fill first empty one
+// 		tlb_end = faultaddress;
+// 		tlb_start = paddr | TLBLO_VALID; 
+// 		TLB_Write(tlb_end, tlb_start, k);
+// 		splx(spl);
+// 		return 0;
+// 	}
+// 	// no invalid ones => pick entry and random and expel it
+// 	tlb_end = faultaddress;
+// 	tlb_start = paddr | TLBLO_VALID;
+// 	TLB_Random(tlb_end, tlb_start);
+// 	splx(spl);
+// 	return 0;
+// }
 
 
-void check_levels(vaddr_t faultaddress, paddr_t* paddr){
+// void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 
-	int level1_index = (faultaddress & Firstlevel) >> 22; 
-	int level2_index = (faultaddress & Secondlevel) >> 12;
-	// check if the 2nd level page table exists
-	struct as_pagetable *lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
+// 	int level1_index = (faultaddress & Firstlevel) >> 22; 
+// 	int level2_index = (faultaddress & Secondlevel) >> 12;
+// 	// check if the 2nd level page table exists
+// 	struct as_pagetable *lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
 
-	if(lvl2_ptes != NULL) {
+// 	if(lvl2_ptes != NULL) {
 	
-		u_int32_t *pte = &(lvl2_ptes->PTE[level2_index]);
+// 		u_int32_t *pte = &(lvl2_ptes->PTE[level2_index]);
 
-		if (*pte & 0x00000800) {
-			// page is present in physical memory
-			*paddr = *pte & PAGE_FRAME; 
-		} 
-		else {
-			 if (*pte) { 
-			 	int freed_id = is_free();
-				*paddr = load_seg(freed_id, curthread->t_vmspace, faultaddress);
+// 		if (*pte & 0x00000800) {
+// 			// page is present in physical memory
+// 			*paddr = *pte & PAGE_FRAME; 
+// 		} 
+// 		else {
+// 			 if (*pte) { 
+// 			 	int freed_id = is_free();
+// 				*paddr = load_seg(freed_id, curthread->t_vmspace, faultaddress);
 
-			 } else {
-				// page does not exist
-				*paddr = alloc_page_userspace(NULL, faultaddress);
-				}
-			// now update the PTE
-			*pte &= 0x00000fff;
-			*pte |= *paddr;
-	    	*pte |= 0x00000800;
-		}
-	} else {
+// 			 } else {
+// 				// page does not exist
+// 				*paddr = alloc_page_userspace(NULL, faultaddress);
+// 				}
+// 			// now update the PTE
+// 			*pte &= 0x00000fff;
+// 			*pte |= *paddr;
+// 	    	*pte |= 0x00000800;
+// 		}
+// 	} else {
 
-		// If second page table doesn't exist, create one
-		curthread->t_vmspace->as_ptes[level1_index] = kmalloc(sizeof(struct as_pagetable));
-		lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
+// 		// If second page table doesn't exist, create one
+// 		curthread->t_vmspace->as_ptes[level1_index] = kmalloc(sizeof(struct as_pagetable));
+// 		lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
 
-		int i;
-		for (i = 0; i < PT_SIZE; i++) {
-			lvl2_ptes->PTE[i] = 0;
-		}
-	    // allocate a page and do the mapping
-	    *paddr = alloc_page_userspace(NULL, faultaddress);
+// 		int i;
+// 		for (i = 0; i < PT_SIZE; i++) {
+// 			lvl2_ptes->PTE[i] = 0;
+// 		}
+// 	    // allocate a page and do the mapping
+// 	    *paddr = alloc_page_userspace(NULL, faultaddress);
 		
-	    u_int32_t* pte = retEntry(curthread, faultaddress); 
+// 	    u_int32_t* pte = retEntry(curthread, faultaddress); 
 
 		
-		*pte &= 0x00000fff;
-	    *pte |= 0x00000800;
-	    *pte |= *paddr;
-	}
-}
+// 		*pte &= 0x00000fff;
+// 	    *pte |= 0x00000800;
+// 	    *pte |= *paddr;
+// 	}
+// }
 
-paddr_t load_seg(int id, struct addrspace* as, vaddr_t v_as) {
+// paddr_t load_seg(int id, struct addrspace* as, vaddr_t v_as) {
 
-	Coremap[id].state = 2; 
-	Coremap[id].addspace = as;
-	Coremap[id].vir_addspace = v_as;
-	Coremap[id].last = 1;
+// 	Coremap[id].state = 2; 
+// 	Coremap[id].addspace = as;
+// 	Coremap[id].vir_addspace = v_as;
+// 	Coremap[id].last = 1;
 
-	return Coremap[id].phy_addspace;
-}
+// 	return Coremap[id].phy_addspace;
+// }
 
-u_int32_t* retEntry (struct thread* addrspace_owner, vaddr_t va){
+// u_int32_t* retEntry (struct thread* addrspace_owner, vaddr_t va){
 
-	int level1_index = (va & Firstlevel) >> 22; 
-	int level2_index = (va & Secondlevel) >> 12;
-	struct as_pagetable* lvl2_ptes = addrspace_owner->t_vmspace->as_ptes[level1_index];
+// 	int level1_index = (va & Firstlevel) >> 22; 
+// 	int level2_index = (va & Secondlevel) >> 12;
+// 	struct as_pagetable* lvl2_ptes = addrspace_owner->t_vmspace->as_ptes[level1_index];
 
-	if (lvl2_ptes == NULL) 
-		return NULL;
-	else 
-		return &(lvl2_ptes->PTE[level2_index]);
-}
+// 	if (lvl2_ptes == NULL) 
+// 		return NULL;
+// 	else 
+// 		return &(lvl2_ptes->PTE[level2_index]);
+// }
 
-paddr_t alloc_page_userspace(struct addrspace * as, vaddr_t v_as) {
+// paddr_t alloc_page_userspace(struct addrspace * as, vaddr_t v_as) {
 
-	int freed_id = is_free();
+// 	int freed_id = is_free();
 
-	if(as == NULL)
-		Coremap[freed_id].addspace = curthread->t_vmspace;
-	else 
-		Coremap[freed_id].addspace = as;
+// 	if(as == NULL)
+// 		Coremap[freed_id].addspace = curthread->t_vmspace;
+// 	else 
+// 		Coremap[freed_id].addspace = as;
 
-	Coremap[freed_id].state = DIRTY; // was 2 (assuming dirty)
-	Coremap[freed_id].vir_addspace = v_as;
-	Coremap[freed_id].last = 1;
+// 	Coremap[freed_id].state = DIRTY; // was 2 (assuming dirty)
+// 	Coremap[freed_id].vir_addspace = v_as;
+// 	Coremap[freed_id].last = 1;
 
-	return Coremap[freed_id].phy_addspace;
-}
+// 	return Coremap[freed_id].phy_addspace;
+// }
 
