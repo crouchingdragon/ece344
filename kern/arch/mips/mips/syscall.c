@@ -17,6 +17,8 @@
 #include <test.h>
 #include <clock.h>
 
+#include <vm.h>
+
 /*
  * System call handler.
  *
@@ -116,6 +118,10 @@ mips_syscall(struct trapframe *tf)
 
 		case SYS_execv:
 		err = sys_execv((const char *)tf->tf_a0, (char**)tf->tf_a1);
+		break;
+
+		case SYS_sbrk:
+		err = sys_sbrk((intptr_t)tf->tf_a0, &retval);
 		break;
 	    
 		default:
@@ -544,14 +550,16 @@ sys_write(int filedest, const char *buf, size_t size, int *retval) {
 
 int sys_fork(struct trapframe *tf, int *retval){
 
-	int spl = splhigh();
+	// int spl = splhigh();
+	P_enter(curthread->pid); // Changed interrupts to semaphores
 	
 	struct trapframe *duplicate = kmalloc(sizeof(struct trapframe));
 
 	//check memory availibility
 
 	if (duplicate == NULL){
-		splx(spl);
+		// splx(spl);
+		V_enter(curthread->pid);
 		return ENOMEM;
 	}
 
@@ -566,7 +574,8 @@ int sys_fork(struct trapframe *tf, int *retval){
 	if(check != 0){
 	
 		kfree(duplicate);
-		splx(spl);
+		// splx(spl);
+		V_enter(curthread->pid);
 		return ENOMEM;
 	
 	}
@@ -577,13 +586,15 @@ int sys_fork(struct trapframe *tf, int *retval){
 	if(forkcheck != 0){
 
 		kfree(duplicate);
-		splx(spl);
+		// splx(spl);
+		V_enter(curthread->pid);
 		return ENOMEM;
 
 	}
 
 	*retval = rope->pid;
-	splx(spl);
+	// splx(spl);
+	V_enter(curthread->pid);
 	return 0;
 }
 
@@ -637,7 +648,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
         return EINVAL;
     }
  
-    // if a thread has already exited (zombie), then just return its values
+    /* if a thread has already exited (zombie), then just return its values and free it */
     if (already_exited(pid)){
         *status = get_exitcode(pid);
 		freeing_proc(pid);
@@ -646,7 +657,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
     }
 	// Why does this work?
     while (!already_exited(pid)){
-        P_done(pid);
+        // P_done(pid);
     }
 
     *status = get_exitcode(pid);
@@ -659,14 +670,19 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
 void
 sys__exit(int exitcode){
 	// Could use the semaphore 'enter' instead of disabling interrupts
-    int spl;
-    spl = splhigh();
+    // int spl;
+    // spl = splhigh();
+
+	/* changed to semaphores because asst4 piazza notes said not to rely on interrupts */
+	P_enter(curthread->pid);
 
 	// Decrementing count to allow access to P in waitpid
     exit_setting(curthread->pid, exitcode);
-    V_done(curthread->pid);
- 
-    splx(spl);
+    // V_done(curthread->pid);
+
+	V_enter(curthread->pid);
+
+    // splx(spl);
     thread_exit();
 }
  
@@ -822,5 +838,24 @@ sys_execv(const char *prog, char **args){
     panic("md_usermode returned\n");
     return EINVAL;
 
+}
+
+int
+sys_sbrk(intptr_t ammount, int* retval){
+	// ammount = number of bytes of memory to allocate
+	// Note: Heap start is below heap end cause heap growns upward
+	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
+	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
+	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
+	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
+
+	if (ammount > 536870912 || ammount < -536870912) return ENOMEM;
+	if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size)) return EINVAL;
+	if ((curthread->t_vmspace->start_heap + ammount) > curthread->t_vmspace->stack) return EINVAL;
+	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
+	*retval = curthread->t_vmspace->start_heap;
+	curthread->t_vmspace->start_heap += ammount;
+	curthread->t_vmspace->heap_size += ammount * PAGE_SIZE;
+	return 0;
 }
 
