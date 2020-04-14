@@ -231,13 +231,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int spl;
 
 	spl = splhigh();
+	found = 0;
 
 	faultaddress &= PAGE_FRAME;
 	//FIXME: Freaks out and panicks here
-	// if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
-    // 	splx(spl);
-    // 	return EFAULT;
-    // }
+	if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
+    	splx(spl);
+    	return EFAULT;
+    }
 	// if(faulttype == VM_FAULT_READONLY){
 	// 	splx(spl);
 	// 	return EFAULT;
@@ -331,8 +332,8 @@ void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	u_int32_t permissions = 0;
 	vaddr_t start_vm, end_vm;
 	start_vm = as->code;
-	end_vm = as->code + as->code_size;
-	if(faultaddress >= end_vm && faultaddress < start_vm){
+	end_vm = as->code + as->code_size * PAGE_SIZE;
+	if(faultaddress >= start_vm && faultaddress < end_vm){
 		found = 1;
 		permissions = 6;
 		*retval = faults(faultaddress, permissions);	
@@ -343,8 +344,9 @@ void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	u_int32_t permissions = 0;
 	vaddr_t start_vm, end_vm;
 	start_vm = as->data;
-	end_vm = as->data + as->data_size;
-	if(faultaddress >= end_vm && faultaddress < start_vm){
+	end_vm = as->data + as->data_size* PAGE_SIZE;
+	// if(faultaddress >= end_vm && faultaddress < start_vm){
+	if(faultaddress >= start_vm && faultaddress < end_vm){
 		found = 1;
 		permissions = 6;
 		*retval = faults(faultaddress, permissions);	
