@@ -54,12 +54,13 @@ struct as_pagetable{
     paddr_t PTE[PT_SIZE];
 };
  
-struct as_region{
-    vaddr_t bottom_vm;
-    size_t npgs;
-    unsigned int region_permis;
-    unsigned int old_perm;
-};
+// struct as_region{
+//     vaddr_t start;
+    // vaddr_t end;
+    // size_t npgs;
+    // unsigned int region_permis;
+    // unsigned int old_perm;
+// };
 
 // struct addrspace2{
 //     vaddr_t vm_base;
@@ -83,15 +84,33 @@ struct addrspace {
     size_t as_npages2;
     paddr_t as_stackpbase;
 #else
+    // assuming all regions will always have the same permissions
+    // struct as_region heap;
+    // struct as_region stack;
+    // struct as_region code;
+    // struct as_region data;
+    vaddr_t start_heap;
+    size_t heap_size;
+    vaddr_t stack;
+    size_t stack_size;
+    vaddr_t code;
+    size_t code_size;
+    vaddr_t data;
+    size_t data_size;
+    unsigned int perm;
+    unsigned int old_perm;
+    struct lock* adr_access;
+    struct as_pagetable *as_ptes[PT_SIZE];
+
+
     /* Put stuff here for your VM system */
-    struct array* as_regions;
-    u_int32_t permissions;
-    vaddr_t start_heap; // user heap start
-    vaddr_t end_heap; // user heap end
-    paddr_t as_stackpbase; // necessary?
+    // u_int32_t permissions;
+    // vaddr_t start_heap; // user heap start
+    // vaddr_t end_heap; // user heap end
+    // paddr_t as_stackpbase; // necessary?
     // struct vnode *vm_obj; // needed?
     // vaddr_t as_vbase1; 
-    struct as_pagetable *as_ptes[PT_SIZE];
+    // struct as_pagetable *as_ptes[PT_SIZE];
 
     // vaddr_t vm_base;
     // paddr_t start_heap;

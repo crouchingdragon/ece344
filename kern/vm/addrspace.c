@@ -14,7 +14,8 @@
  * assignment, this file is not compiled or linked or in any way
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
- 
+
+
 extern size_t numofpgs;
 struct addrspace *
 as_create(void) //FIXME: Gets interrupted after the first line and ends up at alloc_pages (where I set the next breakpoint) when I hit n
@@ -27,13 +28,33 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
     /*
      * Initialize as needed.
      */
-    as->as_regions = array_create();
+    // as->as_regions = array_create();
+    // as->start_heap = 0;
+    // as->end_heap = 0;
+    // not sure if stack needs to be initialized
     as->start_heap = 0;
-    as->end_heap = 0;
+    as->heap_size = 0;
+    as->stack = 0;
+    as->stack_size = 0;
+    as->code = 0;
+    as->code_size = 0;
+    as->data = 0;
+    as->data_size = 0;
+    as->perm = 0;
+    as->old_perm = 0;
+
+    as->adr_access = lock_create("address space lock");
    
-    int i;
+    int i,j;
+    struct as_pagetable *src;
     for (i = 0; i < PT_SIZE; i++){
-        as->as_ptes[i] = NULL;
+        as->as_ptes[i] = NULL; // first layer of PTE points to nothing
+        src = as->as_ptes[i];
+        for(j = i; j < PT_SIZE; j++){
+            src->PTE[j] = 0;
+            // as->as_ptes[i]->PTE[j] = 0; // not sure if this is necessary
+        }
+        as->as_ptes[i] = src;
     }
  
     return as;
@@ -47,23 +68,39 @@ as_copy(struct addrspace *old, struct addrspace **ret)
  
     newas = as_create();
     if (newas==NULL) {
+        panic("out of memory in as_copy");
         return ENOMEM;
     }
+
+    // save current regions
+    newas->start_heap = old->start_heap;
+    newas->heap_size = old->heap_size;
+    newas->stack = old->stack;
+    newas->stack_size = old->stack_size;
+    newas->code = old->code;
+    newas->code_size = old->code_size;
+    newas->data = old->data;
+    newas->data_size = old->data_size;
+    newas->perm = old->perm;
+    newas->old_perm = old->old_perm;
+    newas->adr_access = old->adr_access;
+
+
  
     //COPYING REGIONS**************************************************************************
  
-    int i;
-    for (i = 0; i < array_getnum(old->as_regions); i++) {
-        struct as_region* copy = kmalloc(sizeof(struct as_region));
-        *copy = *((struct as_region*)array_getguy(old->as_regions, i));// not sure if these too lines fully copy stuff
-        array_add(newas->as_regions, copy);
-    }
+    // int i;
+    // for (i = 0; i < array_getnum(old->as_regions); i++) {
+    //     struct as_region* copy = kmalloc(sizeof(struct as_region));
+    //     *copy = *((struct as_region*)array_getguy(old->as_regions, i));// not sure if these too lines fully copy stuff
+    //     array_add(newas->as_regions, copy);
+    // }
  
     //COPYING HEAP*********************************************************************************
  
-    newas->start_heap = old->start_heap;
-    newas->end_heap = old->end_heap;
-    newas->permissions = old->permissions;
+    // newas->start_heap = old->start_heap;
+    // newas->end_heap = old->end_heap;
+    // newas->permissions = old->permissions;
 //is there anything im missing??? right now im copying the last 12 bits.. 1 (startbit) + 1(endbit) + 10(permission) = 12
  
     //COPYING PAGE TABLE ENTRIES PTE*********************************************************************
@@ -72,8 +109,8 @@ as_copy(struct addrspace *old, struct addrspace **ret)
     for (j = 0; j < 1024; j++) {
         if(old->as_ptes[j] != NULL) {
             newas->as_ptes[j] = (struct as_pagetable*) kmalloc(sizeof(struct as_pagetable));
-            struct as_pagetable *src = old->as_ptes[i];
-            struct as_pagetable *copying = newas->as_ptes[i];
+            struct as_pagetable *src = old->as_ptes[j]; // was i before
+            struct as_pagetable *copying = newas->as_ptes[j]; //was i before
             int k;
             for (k = 0; k < 1024; k++) {
                 copying->PTE[k] = 0;
@@ -134,9 +171,22 @@ as_destroy(struct addrspace *as)
      * Clean up as needed.
      */
     int spl = splhigh();
+
+    // setting all regions to 0
+    as->start_heap = 0;
+    as->heap_size = 0;
+    as->stack = 0;
+    as->stack_size = 0;
+    as->code = 0;
+    as->code_size = 0;
+    as->data = 0;
+    as->data_size = 0;
+    as->perm = 0;
+    as->old_perm = 0;
+
     unsigned i;
     for (i = 0; i < numofpgs; i++) {
-        if(Coremap[i].state != 0 && Coremap[i].addspace == as){
+        if(Coremap[i].state != FREE && Coremap[i].addspace == as){ // this was checking that state != 0 before (but it would always not equal 0)
             Coremap[i].addspace = NULL;
             Coremap[i].vir_addspace = 0;
             Coremap[i].state = 0;
@@ -144,7 +194,7 @@ as_destroy(struct addrspace *as)
         }
     }
  
-    array_destroy(as->as_regions);
+    // array_destroy(as->as_regions);
    
     for(i = 0; i < 1024; i++) {
         if(as->as_ptes[i] != NULL)
@@ -154,7 +204,8 @@ as_destroy(struct addrspace *as)
     kfree(as);
     splx(spl);
 }
- 
+
+// from dumb vm
 void
 as_activate(struct addrspace *as)
 {
@@ -203,7 +254,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
     size_t npages; 
 
 	/* Align the region. First, the base... */
-	sz += vaddr & 0x00000fff; //~(vaddr_t)PAGE_FRAME; // lower 12 bits of vaddr == vaddr % PAGE_SIZE -- aligns vaddr to next lowest page addr without affecting upper end
+	sz += vaddr & ~(vaddr_t)PAGE_FRAME; // 0x00000fff; // lower 12 bits of vaddr == vaddr % PAGE_SIZE -- aligns vaddr to next lowest page addr without affecting upper end
 	vaddr &= PAGE_FRAME;
 
 	/* ...and now the length. */
@@ -211,46 +262,67 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 
 	npages = sz / PAGE_SIZE; // 
 
-
+    // all regions are getting the same permissions, so I don't think its necessary to have multiple entries
+    // assert(as->code == 0);
+    // assert(as->data ==0);
+    // as->code = vaddr;
+    if((as->code == 0) && (as->code_size == 0)){
+        as->code = vaddr;
+        as->code_size = npages;
+        as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
+        as->start_heap = vaddr + sz;
+        as->heap_size = 0;
+        return 0;
+    }
+    if((as->data == 0) && (as->data_size == 0)){
+        as->data = vaddr;
+        as->data_size = npages;
+        as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
+        as->start_heap = vaddr + sz;
+        as->heap_size = 0; // number of pages in heap
+        return 0;
+    }
+    panic("Didn't define regions");
+    return 0;
 
     // defining heap start and end
   //  as->start_heap = vaddr + sz;
    // as->end_heap = as->start_heap;
 
     // allocate pages in the coremap to accomodate size of new region (don't need to be contiguous)
-    P(coremap_access);
-    // int i;
-	u_int32_t count, j;
-	count = 0;
-    for (j = 0; j < numofpgs; j++){
-        if ((Coremap[j].state & FREE) && !(Coremap[j].state & DIRTY)){
-            Coremap[j].vir_addspace = vaddr;
-            Coremap[j].state = Coremap[j].state | DIRTY;
-            count++;
-        }
-        if (count >= npages) break;
-    }
-    V(coremap_access);
+    // P(coremap_access);
+    // // int i;
+	// u_int32_t count, j;
+	// count = 0;
+    // for (j = 0; j < numofpgs; j++){
+    //     if ((Coremap[j].state & FREE) && !(Coremap[j].state & DIRTY)){
+    //         Coremap[j].vir_addspace = vaddr; // is this what should be assigned?
+    //         Coremap[j].state = Coremap[j].state | DIRTY;
+    //         count++;
+    //     }
+    //     if (count >= npages) break;
+    // }
+    // V(coremap_access);
     // Mark pages as allocated, update flags, update v_base, v_offset, permissions
-    assert(as->as_regions != NULL);
+    // assert(as->as_regions != NULL);
 //struct as_region *current;
 
 
 
 // mohit 
-	struct as_region *current = kmalloc(sizeof(struct as_region));
-	current->bottom_vm = vaddr;
-	current->npgs = npages;
-	current->region_permis = 0;
-	current->region_permis = (readable | writeable | executable);
-	array_add(as->as_regions, current);
+	// struct as_region *current = kmalloc(sizeof(struct as_region));
+	// current->bottom_vm = vaddr;
+	// current->npgs = npages;
+	// current->region_permis = 0;
+	// current->region_permis = (readable | writeable | executable);
+	// array_add(as->as_regions, current);
 
-	if(array_getnum(as->as_regions) == 2){
-		as->start_heap = vaddr + sz;
-    	as->end_heap = as->start_heap;
-	}
+	// if(array_getnum(as->as_regions) == 2){
+	// 	as->start_heap = vaddr + sz;
+    // 	as->end_heap = as->start_heap;
+	// }
 
-	return 0;
+	// return 0;
 
 //
 
@@ -292,20 +364,22 @@ as_prepare_load(struct addrspace *as)
     /*
      * Write this.
      */
+    as->old_perm = as->perm;
+    as->perm = PF_W | PF_R;
     // change each regions page table permission to read-write since we're going to load content (code, data) into them
     // sets all permissions to write
     // you should not only overwrite the permission, but keep track of what it was before you overwrote it (as complete load restores this)
-    int region_size = array_getnum(as->as_regions);
-    int i;
-	struct as_region *current;
-    for (i = 0; i < region_size; i++){
-		current = array_getguy(as->as_regions, i);
-		current->old_perm = current->region_permis;
-		current->region_permis = READ_WRITE; //FIXME: Not sure if this is the right read and write flag
-		array_setguy(as->as_regions, i, current);
+    // int region_size = array_getnum(as->as_regions);
+    // int i;
+	// struct as_region *current;
+    // for (i = 0; i < region_size; i++){
+	// 	current = array_getguy(as->as_regions, i);
+	// 	current->old_perm = current->region_permis;
+	// 	current->region_permis = READ_WRITE; //FIXME: Not sure if this is the right read and write flag
+	// 	array_setguy(as->as_regions, i, current);
         // as->as_regions[i].old_perm = as->as_regions[i].region_permis;
         // as->as_regions[i].region_permis = READ | WRITE;
-    }
+    // }
     // as->old_perm = as->permissions;
     // as->permissions = READ | WRITE;
  
@@ -319,15 +393,17 @@ as_complete_load(struct addrspace *as)
     /*
      * Write this.
      */
-    int region_size = array_getnum(as->as_regions);
-    int i;
-	struct as_region *current;
-    for (i = 0; i < region_size; i++){
-		current = array_getguy(as->as_regions, i);
-		current->region_permis = current->old_perm;
-		array_setguy(as->as_regions, i, current);
+    as->perm = as->old_perm;
+    as->old_perm = 0;
+    // int region_size = array_getnum(as->as_regions);
+    // int i;
+	// struct as_region *current;
+    // for (i = 0; i < region_size; i++){
+	// 	current = array_getguy(as->as_regions, i);
+	// 	current->region_permis = current->old_perm;
+	// 	array_setguy(as->as_regions, i, current);
         // as->as_regions[i].region_permis = as->as_regions[i].old_perm;
-    }
+    // }
     // as->permissions = as->old_perm;
     // as->old_perm = -1; // or something undefined
 
@@ -342,8 +418,8 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
      * Write this.
      */
  
-    assert(as->as_stackpbase != 0);
-    // (void)as;
+    // assert(as->as_stackpbase != 0);
+    (void)as;
  
     /* Initial user-level stack pointer */
     *stackptr = USERSTACK;

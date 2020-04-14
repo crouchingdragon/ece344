@@ -165,7 +165,7 @@ vaddr_t alloc_pages(int npgs){
 		if (i == (end-1)) Coremap[i].last = 1;
 		else Coremap[i].last = 0;
 	}
-	kprintf("\nAllocated %d pages\n", npgs);
+	// kprintf("\nAllocated %d pages\n", npgs);
 	V(coremap_access);
 	return (PADDR_TO_KVADDR(Coremap[start].phy_addspace));
 }
@@ -184,7 +184,7 @@ int
 index_from_vaddr(vaddr_t addr){
 	u_int32_t i;
 	for (i = 0; i < numofpgs; i++){
-		if (Coremap[i].vir_addspace == addr) return i;
+		if (Coremap[i].phy_addspace == KVADDR_TO_PADDR(addr)) return i;
 	}
 	return -1;
 }
@@ -227,10 +227,14 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	
 	struct addrspace *as;
 	int retval;
-	u_int32_t permission = 0;
+	// u_int32_t permission = 0;
 	int spl;
+	vaddr_t offset; //FIXME: From pemi
 
 	spl = splhigh();
+
+	//FIXME: from pemi
+	offset = faultaddress & 0x00000fff;
 
 	faultaddress &= PAGE_FRAME;
 	//FIXME: Freaks out and panicks here
@@ -274,25 +278,39 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	vaddr_t start_vm, end_vm;
+	// int i;
 
-	int i;
+	// for(i = 0; i < array_getnum(as->as_regions); i++){
+	// 	struct as_region *current = array_getguy(as->as_regions, i);
+	// 	end_vm = current->bottom_vm;
+	// 	start_vm = end_vm + current->npgs * PAGE_SIZE;
+	// 	if(faultaddress >= end_vm && faultaddress < start_vm){
+	// 		found = 1;
+	// 		permission = (current->region_permis);
+	// 		retval = faults(faultaddress, permission);
+	// 		splx(spl);
+	// 		return retval;
+	// 	}
+	// }
 
-	for(i = 0; i < array_getnum(as->as_regions); i++){
-		struct as_region *current = array_getguy(as->as_regions, i);
-		end_vm = current->bottom_vm;
-		start_vm = end_vm + current->npgs * PAGE_SIZE;
-		if(faultaddress >= end_vm && faultaddress < start_vm){
-			found = 1;
-			permission = (current->region_permis);
-			retval = faults(faultaddress, permission);
+	// Figuring out which region the fault occurred
+//check stack if not found
+	if(!found){
+		fault_code(faultaddress, &retval, as);
+		if(found){
 			splx(spl);
 			return retval;
 		}
 	}
-//check stack if not found
 	if(!found){
-		fault_stack(faulttype, faultaddress, &retval);
+		fault_data(faultaddress, &retval, as);
+		if(found){
+			splx(spl);
+			return retval;
+		}
+	}
+	if(!found){
+		fault_stack(faultaddress, &retval);
 		if(found){
 			splx(spl);
 			return retval;
@@ -300,7 +318,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	}
 // check heap if not found
 	if(!found){
-		fault_heap(faulttype, faultaddress, &retval, as);
+		fault_heap(faultaddress, &retval, as);
 		if(found){
 			splx(spl);
 			// return err;
@@ -312,30 +330,54 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	return EFAULT;
 }
 
-void fault_stack(int faulttype, vaddr_t faultaddress, int* retval){
+//QUESTION: Would curthread info be different from addspace info at this point?
+void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	u_int32_t permissions = 0;
 	vaddr_t start_vm, end_vm;
-	start_vm = MIPS_KSEG0;
-	end_vm = start_vm - 24 * PAGE_SIZE;
-	if(faultaddress >= end_vm && faultaddress < start_vm){
-		found = 1;
-		permissions = 6;
-		*retval = faults(faultaddress, permissions);
-	}
-	(void)faulttype;
-}
-
-void fault_heap(int faulttype, vaddr_t faultaddress, int* retval, struct addrspace* as){
-	u_int32_t permissions = 0;
-	vaddr_t start_vm, end_vm;
-	end_vm = as->start_heap;
-	start_vm = as->end_heap;
+	start_vm = as->code;
+	end_vm = as->code + as->code_size;
 	if(faultaddress >= end_vm && faultaddress < start_vm){
 		found = 1;
 		permissions = 6;
 		*retval = faults(faultaddress, permissions);	
 	}
-	(void)faulttype;
+}
+
+void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as){
+	u_int32_t permissions = 0;
+	vaddr_t start_vm, end_vm;
+	start_vm = as->data;
+	end_vm = as->data + as->data_size;
+	if(faultaddress >= end_vm && faultaddress < start_vm){
+		found = 1;
+		permissions = 6;
+		*retval = faults(faultaddress, permissions);	
+	}
+}
+
+void fault_stack(vaddr_t faultaddress, int* retval/*, struct addrspace* as*/){
+	u_int32_t permissions = 0;
+	vaddr_t start_vm, end_vm;
+	start_vm = MIPS_KSEG0; // same address as USERSTACK
+	end_vm = start_vm - 1024 * PAGE_SIZE;
+
+	if(faultaddress >= end_vm && faultaddress < start_vm){
+		found = 1;
+		permissions = 6; // why 6?
+		*retval = faults(faultaddress, permissions);
+	}
+}
+
+void fault_heap(vaddr_t faultaddress, int* retval, struct addrspace* as){
+	u_int32_t permissions = 0;
+	vaddr_t start_vm, end_vm;
+	end_vm = as->start_heap;
+	start_vm = as->start_heap + as->heap_size;
+	if(faultaddress >= end_vm && faultaddress < start_vm){
+		found = 1;
+		permissions = 6;
+		*retval = faults(faultaddress, permissions);	
+	}
 }
 
 int faults(vaddr_t faultaddress, u_int32_t permissions) {
@@ -362,7 +404,7 @@ int faults(vaddr_t faultaddress, u_int32_t permissions) {
 		}
 		//fill first empty one
 		tlb_end = faultaddress;
-		tlb_start = paddr | TLBLO_VALID; 
+		tlb_start = paddr | TLBLO_VALID | TLBLO_DIRTY; 
 		TLB_Write(tlb_end, tlb_start, k);
 		splx(spl);
 		return 0;
@@ -382,8 +424,10 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 	int level2_index = (faultaddress & Secondlevel) >> 12;
 	// check if the 2nd level page table exists
 	struct as_pagetable *lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
+	// struct as_pagetable *lvl2_ptes = as->as_ptes[level1_index];
 
 	if(lvl2_ptes != NULL) {
+	// if(as->as_ptes[level1_index] != NULL) { // it exists
 	
 		u_int32_t *pte = &(lvl2_ptes->PTE[level2_index]);
 
@@ -408,7 +452,7 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 	} else {
 
 		// If second page table doesn't exist, create one
-		curthread->t_vmspace->as_ptes[level1_index] = kmalloc(sizeof(struct as_pagetable));
+		curthread->t_vmspace->as_ptes[level1_index] = (struct as_pagetable*) kmalloc(sizeof(struct as_pagetable));
 		lvl2_ptes = curthread->t_vmspace->as_ptes[level1_index];
 
 		int i;

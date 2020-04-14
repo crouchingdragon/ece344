@@ -118,9 +118,13 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr);
 
 paddr_t alloc_page_userspace(struct addrspace * as, vaddr_t v_as);
 
-void fault_stack(int faulttype, vaddr_t faultaddress, int* retval);
+void fault_stack(/*int faulttype,*/ vaddr_t faultaddress, int* retval);
 
-void fault_heap(int faulttype, vaddr_t faultaddress, int* retval, struct addrspace* as);
+void fault_heap(/*int faulttype,*/ vaddr_t faultaddress, int* retval, struct addrspace* as);
+
+void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as);
+
+void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as);
 
 // static
 // paddr_t

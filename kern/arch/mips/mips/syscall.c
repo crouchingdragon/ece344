@@ -850,11 +850,12 @@ sys_sbrk(intptr_t ammount, int* retval){
 	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
 
 	if (ammount > 536870912 || ammount < -536870912) return ENOMEM;
-	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->end_heap) return EINVAL;
-	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->as_stackpbase) return EINVAL;
+	if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size)) return EINVAL;
+	if ((curthread->t_vmspace->start_heap + ammount) > curthread->t_vmspace->stack) return EINVAL;
 	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
 	*retval = curthread->t_vmspace->start_heap;
-	curthread->t_vmspace->start_heap -= ammount;
+	curthread->t_vmspace->start_heap += ammount;
+	curthread->t_vmspace->heap_size += ammount * PAGE_SIZE;
 	return 0;
 }
 
