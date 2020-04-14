@@ -848,9 +848,12 @@ sys_sbrk(intptr_t ammount, int* retval){
 	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
 	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
 	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
-
-	if (ammount > 536870912 || ammount < -536870912) return ENOMEM;
-	if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size)) return EINVAL;
+	// vaddr_t heap_start, heap_end;
+	// heap_start = curthread->t_vmspace->start_heap;
+	// heap_end = heap_start - curthread->t_vmspace->heap_size * PAGE_SIZE;
+	if (ammount >= (4096*1024*256)) return ENOMEM;
+	if (ammount <= (-4096*1024*256)) return EINVAL;
+	if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size * PAGE_SIZE)) return EINVAL;
 	if ((curthread->t_vmspace->start_heap + ammount) > curthread->t_vmspace->stack) return EINVAL;
 	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
 	*retval = curthread->t_vmspace->start_heap;
