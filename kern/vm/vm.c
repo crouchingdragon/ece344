@@ -229,19 +229,15 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	int retval;
 	// u_int32_t permission = 0;
 	int spl;
-	vaddr_t offset; //FIXME: From pemi
 
 	spl = splhigh();
 
-	//FIXME: from pemi
-	offset = faultaddress & 0x00000fff;
-
 	faultaddress &= PAGE_FRAME;
 	//FIXME: Freaks out and panicks here
-	if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
-    	splx(spl);
-    	return EFAULT;
-    }
+	// if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
+    // 	splx(spl);
+    // 	return EFAULT;
+    // }
 	// if(faulttype == VM_FAULT_READONLY){
 	// 	splx(spl);
 	// 	return EFAULT;
@@ -325,7 +321,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 			return EFAULT; // not sure if this should be efault, but err above is undeclared
 		}
 	}
-
+	panic("fault address is not valid\n");
 	splx(spl);
 	return EFAULT;
 }

@@ -43,18 +43,13 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
     as->perm = 0;
     as->old_perm = 0;
 
-    as->adr_access = lock_create("address space lock");
+    // as->adr_access = lock_create("address space lock");
    
-    int i,j;
-    struct as_pagetable *src;
+   // do you have to initialize the page tables attatched to it?
+   // why can't you use malloc here?
+    int i;
     for (i = 0; i < PT_SIZE; i++){
         as->as_ptes[i] = NULL; // first layer of PTE points to nothing
-        src = as->as_ptes[i];
-        for(j = i; j < PT_SIZE; j++){
-            src->PTE[j] = 0;
-            // as->as_ptes[i]->PTE[j] = 0; // not sure if this is necessary
-        }
-        as->as_ptes[i] = src;
     }
  
     return as;
