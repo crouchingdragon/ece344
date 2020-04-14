@@ -120,9 +120,9 @@ mips_syscall(struct trapframe *tf)
 		err = sys_execv((const char *)tf->tf_a0, (char**)tf->tf_a1);
 		break;
 
-		// case SYS_sbrk:
-		// err = sys_sbrk((intptr_t)tf->tf_a0, &retval);
-		// break;
+		case SYS_sbrk:
+		err = sys_sbrk((intptr_t)tf->tf_a0, &retval);
+		break;
 	    
 		default:
 		kprintf("Unknown syscall %d\n", callno);
@@ -840,21 +840,21 @@ sys_execv(const char *prog, char **args){
 
 }
 
-// int
-// sys_sbrk(intptr_t ammount, int* retval){
-// 	// ammount = number of bytes of memory to allocate
-// 	// Note: Heap start is below heap end cause heap growns upward
-// 	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
-// 	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
-// 	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
-// 	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
+int
+sys_sbrk(intptr_t ammount, int* retval){
+	// ammount = number of bytes of memory to allocate
+	// Note: Heap start is below heap end cause heap growns upward
+	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
+	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
+	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
+	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
 
-// 	if (ammount > 536870912 || ammount < -536870912) return ENOMEM;
-// 	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->end_heap) return EINVAL;
-// 	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->as_stackpbase) return EINVAL;
-// 	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
-// 	*retval = curthread->t_vmspace->start_heap;
-// 	curthread->t_vmspace->start_heap -= ammount;
-// 	return 0;
-// }
+	if (ammount > 536870912 || ammount < -536870912) return ENOMEM;
+	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->end_heap) return EINVAL;
+	if ((curthread->t_vmspace->start_heap - ammount) > curthread->t_vmspace->as_stackpbase) return EINVAL;
+	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
+	*retval = curthread->t_vmspace->start_heap;
+	curthread->t_vmspace->start_heap -= ammount;
+	return 0;
+}
 

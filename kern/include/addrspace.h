@@ -83,15 +83,15 @@ struct addrspace {
     size_t as_npages2;
     paddr_t as_stackpbase;
 #else
-    // /* Put stuff here for your VM system */
-    // struct array* as_regions;
-    // u_int32_t permissions;
-    // vaddr_t start_heap; // user heap start
-    // vaddr_t end_heap; // user heap end
-    // paddr_t as_stackpbase; // necessary?
-    // // struct vnode *vm_obj; // needed?
-    // // vaddr_t as_vbase1; 
-    // struct as_pagetable *as_ptes[PT_SIZE];
+    /* Put stuff here for your VM system */
+    struct array* as_regions;
+    u_int32_t permissions;
+    vaddr_t start_heap; // user heap start
+    vaddr_t end_heap; // user heap end
+    paddr_t as_stackpbase; // necessary?
+    // struct vnode *vm_obj; // needed?
+    // vaddr_t as_vbase1; 
+    struct as_pagetable *as_ptes[PT_SIZE];
 
     // vaddr_t vm_base;
     // paddr_t start_heap;
@@ -104,13 +104,13 @@ struct addrspace {
     // struct as_pagetable* pages;
 
     ///////////// DUMB VM STUFF ////////////////
-    vaddr_t as_vbase1;
-    paddr_t as_pbase1;
-    size_t as_npages1;
-    vaddr_t as_vbase2;
-    paddr_t as_pbase2;
-    size_t as_npages2;
-    paddr_t as_stackpbase;
+    // vaddr_t as_vbase1;
+    // paddr_t as_pbase1;
+    // size_t as_npages1;
+    // vaddr_t as_vbase2;
+    // paddr_t as_pbase2;
+    // size_t as_npages2;
+    // paddr_t as_stackpbase;
 
 #endif
 };
