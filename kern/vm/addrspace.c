@@ -34,6 +34,7 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
     // as->end_heap = 0;
     // not sure if stack needs to be initialized
     as->start_heap = 0;
+    as->end_heap = 0;
     as->heap_size = 0;
     as->stack = 0;
     as->stack_size = 0;
@@ -170,6 +171,7 @@ as_destroy(struct addrspace *as)
 
     // setting all regions to 0
     as->start_heap = 0;
+    as->end_heap = 0;
     as->heap_size = 0;
     as->stack = 0;
     as->stack_size = 0;
@@ -268,6 +270,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
         // as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
         as->perm = readable | writeable | executable;
         as->start_heap = vaddr + sz;
+        as->end_heap = as->start_heap;
         as->heap_size = 0;
         if (as->start_heap == 0) panic("heap is not allocating\n");
         return 0;
@@ -278,6 +281,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
         // as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
         as->perm = readable | writeable | executable;
         as->start_heap = vaddr + sz;
+        as->end_heap = as->start_heap;
         as->heap_size = 0; // number of pages in heap
         if (as->start_heap == 0) panic("heap is not allocating\n");
         return 0;
