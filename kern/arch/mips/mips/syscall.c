@@ -841,42 +841,92 @@ sys_execv(const char *prog, char **args){
 }
 
 int
-sys_sbrk(intptr_t ammount, int* retval){
+sys_sbrk(intptr_t amount, int* retval){
 	// ammount = number of bytes of memory to allocate
 	// Note: Heap start is below heap end cause heap growns upward
 	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
 	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
 	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
 	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
-	int heap_start, heap_end, new_end;
-	heap_start = (int)curthread->t_vmspace->start_heap;
-	heap_end = (int)curthread->t_vmspace->end_heap;
-	new_end = heap_end + ammount;
-
-	// make sure heap_end + ammount >= heap_start
-	if (new_end < heap_start) return EINVAL;
-	// if (new_end < 0) return EINVAL;
-	// not sure if I should leave these as hard coded (they can be done another confusing way)
-	if (ammount >= (4096*1024*256)) return ENOMEM;
-	if (ammount <= (-4096*1024*256)) return EINVAL;
-	// not sure if I should have an alignment check
-	if (!(ammount % PAGE_SIZE)) return EINVAL;
 	
+	// just return in this case -- nothing changed
+	// if (ammount == 0){
+	// 	*retval = curthread->t_vmspace->end_heap;
+	// 	return 0;
+	// }
+	
+	// int heap_start, heap_end, new_end, npgs;
+	// heap_start = (int)curthread->t_vmspace->start_heap;
+	// heap_end = (int)curthread->t_vmspace->end_heap;
+	// new_end = heap_end + ammount;
+
+	// int stack_pages = (int)curthread->t_vmspace->stack_size; // should have something in here?
+
+	// // make sure heap_end + ammount >= heap_start
+	// if (new_end < heap_start) return EINVAL;
+	// // not sure if I should leave these as hard coded (they can be done another confusing way)
+	// // if ((ammount < 0) && (new_end < 0)) return EINVAL;
+	// // if (new_end < 0) return ENOMEM;
+	// if (ammount >= (4096*1024*256)) return ENOMEM;
+	// if (ammount <= (-4096*1024*256)) return EINVAL;
+	// // not sure if I should have an alignment check
+	// if (!(ammount % PAGE_SIZE)) return EINVAL; // shd the amount be / by PAGE_SIZE?
+	
+	// // npgs = ROUNDUP(new_end, PAGE_SIZE)/PAGE_SIZE;
+	// npgs = (new_end - heap_start) / PAGE_SIZE; // checking if rounding up isn't necessary
+	// curthread->t_vmspace->heap_size = npgs;
+	// *retval = curthread->t_vmspace->end_heap; // should always return old heap end
+	// curthread->t_vmspace->end_heap = new_end;
+
+////////////////////////////////////////// come clutch liyu /////////////////////////////////////////////////
+
+struct addrspace *as = curthread->t_vmspace;
+	vaddr_t stack_end = USERSTACK - 1536 * PAGE_SIZE;
+	vaddr_t old_heap_end = as->end_heap;
+
+	if((int)old_heap_end + amount < (int)as->start_heap || (int)old_heap_end + amount < 0)
+		return EINVAL;
+	if(amount % 4 != 0)
+		return EINVAL;
+	if(old_heap_end + amount > stack_end)
+		return ENOMEM;
+	if(amount == 0){
+		*retval = old_heap_end;
+		return 0;
+	}
+	if(ROUNDUP(amount, PAGE_SIZE) / PAGE_SIZE > 300)
+		return ENOMEM;
+
+	if(amount < 0){
+
+		int new_npages = (old_heap_end + amount - as->start_heap) / PAGE_SIZE;
+
+		as->end_heap = old_heap_end + amount;
+		as->heap_size -= new_npages;
+		*retval = old_heap_end;
+	}
+	else{
+		int new_npages = ROUNDUP((old_heap_end + amount - as->start_heap), PAGE_SIZE) / PAGE_SIZE;
+		
+		as->end_heap = old_heap_end + amount;
+		as->heap_size += new_npages;
+		*retval = old_heap_end;
+	}
+	assert(curspl == 0);
+			
+	return 0;
 
 
+////////////////////////////////////////// come clutch liyu /////////////////////////////////////////////////
 
-
-
-
-
-	if (ammount >= (4096*1024*256)) return ENOMEM;
-	if (ammount <= (-4096*1024*256)) return EINVAL;
-	if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size * PAGE_SIZE)) return EINVAL;
-	if ((curthread->t_vmspace->start_heap + ammount) > curthread->t_vmspace->stack) return EINVAL;
+	// if (ammount >= (4096*1024*256)) return ENOMEM;
+	// if (ammount <= (-4096*1024*256)) return EINVAL;
+	// if ((curthread->t_vmspace->start_heap + ammount) > (curthread->t_vmspace->start_heap + curthread->t_vmspace->heap_size * PAGE_SIZE)) return EINVAL;
+	// if ((curthread->t_vmspace->start_heap + ammount) > curthread->t_vmspace->stack) return EINVAL;
 	// if (!((unsigned)ammount % 4)) ROUNDUP(ammount,4); // thinking 4 bytes here would make it alligned
-	*retval = curthread->t_vmspace->start_heap;
-	curthread->t_vmspace->start_heap += ammount;
-	curthread->t_vmspace->heap_size += ammount * PAGE_SIZE;
+	// *retval = curthread->t_vmspace->start_heap;
+	// curthread->t_vmspace->start_heap += ammount;
+	// curthread->t_vmspace->heap_size += ammount * PAGE_SIZE;
 	return 0;
 }
 
