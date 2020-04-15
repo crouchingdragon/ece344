@@ -6,9 +6,11 @@
 #include <thread.h>
  
 /*
- * VM system-related definitions.
- *
- * You'll probably want to add stuff here.
+ * MIPS hardwired memory layout:
+ *    0xc0000000 - 0xffffffff   kseg2 (kernel, tlb-mapped)
+ *    0xa0000000 - 0xbfffffff   kseg1 (kernel, unmapped, uncached)
+ *    0x80000000 - 0x9fffffff   kseg0 (kernel, unmapped, cached)
+ *    0x00000000 - 0x7fffffff   kuseg (user, tlb-mapped)
  */
 
 #define DUMBVM_STACKPAGES    12
@@ -64,10 +66,35 @@ struct semaphore* coremap_access;
 
 // #define KVADDR_TO_PADDR(vaddr) ((vaddr)-MIPS_KSEG0)
 
+/* 
+ * The first 512 megs of physical space can be addressed in both kseg0 and
+ * kseg1. We use kseg0 for the kernel. This macro returns the kernel virtual
+ * address of a given physical address within that range. (We assume we're
+ * not using systems with more physical space than that anyway.)
+ *
+ * N.B. If you, say, call a function that returns a paddr or 0 on error,
+ * check the paddr for being 0 *before* you use this macro. While paddr 0
+ * is not legal for memory allocation or memory management (it holds 
+ * exception handler code) when converted to a vaddr it's *not* NULL, *is*
+ * a valid address, and will make a *huge* mess if you scribble on it.
+ */
+#define PADDR_TO_KVADDR(paddr) ((paddr)+MIPS_KSEG0)
+// probably useful to have opposite
+#define KVADDR_TO_PADDR(vaddr) ((vaddr)-MIPS_KSEG0)
+
+/*
+ * The top of user space. (Actually, the address immediately above the
+ * last valid user address.)
+ * 
+ * 
+ */
+
 /* Fault-type arguments to vm_fault() */
 #define VM_FAULT_READ        0    /* A read was attempted */
 #define VM_FAULT_WRITE       1    /* A write was attempted */
 #define VM_FAULT_READONLY    2    /* A write to a readonly page was attempted*/
+
+#define USERTOP     MIPS_KSEG0
 
 // read write permissions (necessary?)
 #define READ    0
