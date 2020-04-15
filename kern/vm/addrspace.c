@@ -1,4 +1,3 @@
-
 #include <types.h>
 #include <kern/errno.h>
 #include <lib.h>
@@ -278,7 +277,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
     if((as->data == 0) && (as->data_size == 0)){
         as->data = vaddr;
         as->data_size = npages;
-        // as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
+        as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
         as->perm = readable | writeable | executable;
         as->start_heap = vaddr + sz;
         as->end_heap = as->start_heap;
