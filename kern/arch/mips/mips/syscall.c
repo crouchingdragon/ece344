@@ -842,6 +842,7 @@ sys_execv(const char *prog, char **args){
 
 int
 sys_sbrk(intptr_t ammount, int* retval){
+	
 	// ammount = number of bytes of memory to allocate
 	// Note: Heap start is below heap end cause heap growns upward
 	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
