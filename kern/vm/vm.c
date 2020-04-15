@@ -365,7 +365,7 @@ void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	vaddr_t start_vm, end_vm;
 	start_vm = as->code;
 	end_vm = as->code + as->code_size * PAGE_SIZE;
-	if(faultaddress >= start_vm && faultaddress <= end_vm){
+	if(faultaddress >= start_vm && faultaddress < end_vm){
 		found = 1;
 		permissions = 6;
 		*retval = faults(faultaddress, permissions);	
