@@ -90,7 +90,6 @@ struct addrspace {
     // struct as_region code;
     // struct as_region data;
     vaddr_t start_heap;
-    vaddr_t end_heap;
     size_t heap_size;
     vaddr_t stack;
     size_t stack_size;
