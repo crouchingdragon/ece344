@@ -1,0 +1,115 @@
+Running all tests for Assignment 4
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-01-crash.py
+crash
+WARM UP
+RUN 1/4
+RUN 2/4
+OS HAS CRASHED
+END OF FILE ERROR
+FAIL
+Mark for crash is 0 out of 15
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-02-badcall.py
+badcall
+PASS
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+END OF FILE ERROR
+FAIL
+END OF FILE ERROR
+FAIL
+FAIL
+Mark for badcall is 5 out of 13
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-03-stacktest.py
+stacktest
+RUN 1/2
+TIMEOUT ERROR
+FAIL
+Mark for stacktest is 0 out of 5
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-04-malloctest.py
+malloctest
+FAIL
+FAIL
+FAIL
+Mark for malloctest is 0 out of 20
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-05-btree.py
+btree
+END OF FILE ERROR
+FAIL
+OS HAS CRASHED
+END OF FILE ERROR
+FAIL
+Mark for btree is 0 out of 25
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-06-bigprog.py
+bigprog
+END OF FILE ERROR
+FAIL
+Mark for bigprog is 0 out of 15
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-07-sty.py
+sty
+RUN 1/3
+END OF FILE ERROR
+FAIL
+Mark for sty is 0 out of 10
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-08-forktest.py
+forktest
+RUN 1/4
+END OF FILE ERROR
+FAIL
+Mark for forktest is 0 out of 15
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-09-facts.py
+facts
+END OF FILE ERROR
+FAIL
+Mark for facts is 0 out of 5
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-10-hasher.py
+hasher
+8 PROCS
+END OF FILE ERROR
+FAIL
+Mark for hasher is 0 out of 18
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-11-matmult.py
+matmult
+END OF FILE ERROR
+FAIL
+Mark for matmult is 0 out of 10
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-12-huge.py
+huge
+END OF FILE ERROR
+FAIL
+Mark for huge is 0 out of 10
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-13-triplemat.py
+triplemat
+END OF FILE ERROR
+FAIL
+Mark for triplemat is 0 out of 5
+
+Running: /nfs/ug/cad/cad2/ece344s/tester/scripts/asst4-14-parallelvm.py
+parallelvm
+ATTEMPT 1/3
+END OF FILE ERROR
+ATTEMPT 2/3
+END OF FILE ERROR
+ATTEMPT 3/3
+END OF FILE ERROR
+FAIL
+Mark for parallelvm is 0 out of 9
+
+You received 5 marks out of 175
