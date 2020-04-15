@@ -20,6 +20,7 @@ extern size_t numofpgs;
 struct addrspace *
 as_create(void) //FIXME: Gets interrupted after the first line and ends up at alloc_pages (where I set the next breakpoint) when I hit n
 {
+    kprintf("in as_create\n");
     struct addrspace *as = kmalloc(sizeof(struct addrspace));
     if (as==NULL) {
         return NULL;
@@ -58,6 +59,7 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
 int
 as_copy(struct addrspace *old, struct addrspace **ret)
 {
+    kprintf("in as_copy\n");
     int spl = splhigh();
     struct addrspace *newas;
  
@@ -162,6 +164,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 void
 as_destroy(struct addrspace *as)
 {
+    kprintf("in as_destroy\n");
     /*
      * Clean up as needed.
      */
@@ -179,22 +182,35 @@ as_destroy(struct addrspace *as)
     as->perm = 0;
     as->old_perm = 0;
 
-    unsigned i;
-    for (i = 0; i < numofpgs; i++) {
-        if(Coremap[i].state != FREE && Coremap[i].addspace == as){ // this was checking that state != 0 before (but it would always not equal 0)
-            Coremap[i].addspace = NULL;
-            Coremap[i].vir_addspace = 0;
-            Coremap[i].state = 0;
-            Coremap[i].last = 0;
+    // unsigned i;
+    // for (i = 0; i < numofpgs; i++) {
+    //     if(Coremap[i].state != FREE && Coremap[i].addspace == as){ // this was checking that state != 0 before (but it would always not equal 0)
+    //         Coremap[i].addspace = NULL;
+    //         Coremap[i].vir_addspace = 0;
+    //         Coremap[i].state = FREE;
+    //         Coremap[i].last = 0;
+    //     }
+    // }
+    unsigned i, j, free_index;
+    // struct as_pagetable* lvl2;
+    // lvl2 = as->as_ptes;
+    for (i = 0; i < PAGE_SIZE; i++){
+        if (as->as_ptes[i] == NULL) continue;
+        for (j = 0; j < PAGE_SIZE; j++){
+            if (as->as_ptes[i]->PTE[j] == 0) continue;
+            free_index = index_from_paddr(as->as_ptes[i]->PTE[j]);
+            free_from_pt(free_index);
         }
+        // kfree(lvl2); // is this necessary?
+        // as->as_ptes[i] = NULL;
     }
  
     // array_destroy(as->as_regions);
    
-    for(i = 0; i < 1024; i++) {
-        if(as->as_ptes[i] != NULL)
-            kfree(as->as_ptes[i]);
-    }
+    // for(i = 0; i < 1024; i++) {
+    //     if(as->as_ptes[i] != NULL)
+    //         kfree(as->as_ptes[i]);
+    // }
    
     kfree(as);
     splx(spl);
@@ -203,7 +219,8 @@ as_destroy(struct addrspace *as)
 // from dumb vm
 void
 as_activate(struct addrspace *as)
-{
+{   
+    // kprintf("in as_activate\n");   
     /*
      * Write this.
      */
@@ -238,6 +255,7 @@ int
 as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
          int readable, int writeable, int executable)
 {
+    kprintf("in as_define_region\n");   
     /*
      * Write this.
      */
@@ -264,7 +282,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
     if((as->code == 0) && (as->code_size == 0)){
         as->code = vaddr;
         as->code_size = npages;
-        // as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
         as->perm = readable | writeable | executable;
         as->start_heap = vaddr + sz;
         as->heap_size = 0;
@@ -274,7 +291,6 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
     if((as->data == 0) && (as->data_size == 0)){
         as->data = vaddr;
         as->data_size = npages;
-        as->perm = 0 | (readable << 2) | (writeable << 1) | (executable);
         as->perm = readable | writeable | executable;
         as->start_heap = vaddr + sz;
         as->heap_size = 0; // number of pages in heap
@@ -360,11 +376,13 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
 int
 as_prepare_load(struct addrspace *as)
 {
+    kprintf("in as_prepare_load\n");   
     /*
      * Write this.
      */
-    as->old_perm = as->perm;
-    as->perm = PF_W | PF_R;
+    // as->old_perm = as->perm;
+    // as->perm = PF_W | PF_R;
+    
     // change each regions page table permission to read-write since we're going to load content (code, data) into them
     // sets all permissions to write
     // you should not only overwrite the permission, but keep track of what it was before you overwrote it (as complete load restores this)
@@ -382,18 +400,20 @@ as_prepare_load(struct addrspace *as)
     // as->old_perm = as->permissions;
     // as->permissions = READ | WRITE;
  
-    // (void)as;
+    (void)as;
     return 0;
 }
  
 int
 as_complete_load(struct addrspace *as)
 {
+    kprintf("in as_complete_load\n");   
     /*
      * Write this.
      */
-    as->perm = as->old_perm;
-    as->old_perm = 0;
+    // as->perm = as->old_perm;
+    // as->old_perm = 0;
+
     // int region_size = array_getnum(as->as_regions);
     // int i;
 	// struct as_region *current;
@@ -406,13 +426,14 @@ as_complete_load(struct addrspace *as)
     // as->permissions = as->old_perm;
     // as->old_perm = -1; // or something undefined
 
-    // (void)as;
+    (void)as;
     return 0;
 }
  
 int
 as_define_stack(struct addrspace *as, vaddr_t *stackptr)
 {
+    kprintf("in as_define_stack\n");   
     /*
      * Write this.
      */

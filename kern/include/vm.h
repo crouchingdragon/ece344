@@ -126,6 +126,10 @@ void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as);
 
 void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as);
 
+int index_from_paddr(paddr_t addr);
+
+void free_from_pt(int index);
+
 // static
 // paddr_t
 // getppages(unsigned long npages);

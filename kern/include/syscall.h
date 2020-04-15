@@ -15,6 +15,6 @@ int sys_fork(struct trapframe *tf, int *retval);
 int sys_getpid(int *retval);
 int sys_waitpid(pid_t pid, int* status, int options, int *retval);
 int sys_execv(const char *program, char **args);
-int sys_sbrk(intptr_t ammount, int* retval);
+int sys_sbrk(int ammount, int* retval);
 
 #endif /* SYSCALL_H */

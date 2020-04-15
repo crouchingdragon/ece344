@@ -188,6 +188,22 @@ index_from_vaddr(vaddr_t addr){
 	}
 	return -1;
 }
+
+int
+index_from_paddr(paddr_t addr){
+	return(addr/PAGE_SIZE);
+}
+
+void
+free_from_pt(int index){
+	Coremap[index].state = FREE;
+	Coremap[index].phy_addspace = 0;
+	Coremap[index].vir_addspace = 0;
+	Coremap[index].swap_addspace = 0;
+	Coremap[index].addspace = NULL;
+	Coremap[index].last = 0;
+	Coremap[index].id = -1;
+}
  
 void
 free_kpages(vaddr_t addr)
@@ -206,7 +222,12 @@ free_kpages(vaddr_t addr)
 		// 	i, Coremap[i].state, Coremap[i].last, Coremap[i].vir_addspace);
 
 		Coremap[i].state = FREE;
-
+		Coremap[i].phy_addspace = 0;
+		Coremap[i].vir_addspace = 0;
+		Coremap[i].swap_addspace = 0;
+		Coremap[i].addspace = NULL;
+		Coremap[i].last = 0;
+		Coremap[i].id = -1;
 		// kprintf("FREED:  i = %d   Coremap_state: %d  Coremap_last: %d   Coremap vaddr = %d\n",
 		// 	i, Coremap[i].state, Coremap[i].last, Coremap[i].vir_addspace);
 
@@ -224,7 +245,8 @@ free_kpages(vaddr_t addr)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	
+	kprintf("in vm_fault %d\n", faultaddress);
+	// kprintf("In vm_fault faultaddress: %d\n", faultaddress);	
 	struct addrspace *as;
 	int retval;
 	// u_int32_t permission = 0;
@@ -235,6 +257,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	faultaddress &= PAGE_FRAME;
 	//FIXME: Freaks out and panicks here
+	
 	if (faultaddress == 0){ // had == NULL before but vaddr_t is type int
     	splx(spl);
     	return EFAULT;
@@ -295,32 +318,41 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 	if(!found){
 		fault_code(faultaddress, &retval, as);
 		if(found){
+			// kprintf("fault in code\n");
 			splx(spl);
 			return retval;
 		}
+		// kprintf("fault not in code\n");
 	}
 	if(!found){
 		fault_data(faultaddress, &retval, as);
 		if(found){
+			// kprintf("fault in data\n");
 			splx(spl);
 			return retval;
 		}
+		// kprintf("fault not in data\n");
 	}
 	if(!found){
 		fault_stack(faultaddress, &retval);
 		if(found){
+			// kprintf("fault in stack\n");
 			splx(spl);
 			return retval;
 		}
+		// kprintf("fault not in stack\n");
 	}
 // check heap if not found
 	if(!found){
 		fault_heap(faultaddress, &retval, as);
 		if(found){
+			// kprintf("fault in heap\n");
 			splx(spl);
 			// return err;
-			return EFAULT; // not sure if this should be efault, but err above is undeclared
+			// return EFAULT; // not sure if this should be efault, but err above is undeclared
+			return retval;
 		}
+		// kprintf("fault not in heap\n");
 	}
 	panic("fault address is not valid\n");
 	splx(spl);
@@ -333,7 +365,7 @@ void fault_code(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	vaddr_t start_vm, end_vm;
 	start_vm = as->code;
 	end_vm = as->code + as->code_size * PAGE_SIZE;
-	if(faultaddress >= start_vm && faultaddress < end_vm){
+	if(faultaddress >= start_vm && faultaddress <= end_vm){
 		found = 1;
 		permissions = 6;
 		*retval = faults(faultaddress, permissions);	
@@ -370,7 +402,7 @@ void fault_heap(vaddr_t faultaddress, int* retval, struct addrspace* as){
 	u_int32_t permissions = 0;
 	vaddr_t start_vm, end_vm;
 	end_vm = as->start_heap;
-	start_vm = as->start_heap + as->heap_size;
+	start_vm = as->start_heap + as->heap_size*PAGE_SIZE;
 	if(faultaddress >= end_vm && faultaddress < start_vm){
 		found = 1;
 		permissions = 6;
@@ -444,8 +476,12 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 				}
 			// now update the PTE
 			*pte &= 0x00000fff;
-			*pte |= *paddr;
-	    	*pte |= 0x00000800;
+			 *pte |= *paddr;
+			// *pte |= TLBLO_DIRTY;
+			// *pte |= TLBLO_VALID;
+	    	// *pte |= 0x00000800;
+			*pte |= 0x00000800;
+	    	//*pte |= *paddr;
 		}
 	} else {
 
