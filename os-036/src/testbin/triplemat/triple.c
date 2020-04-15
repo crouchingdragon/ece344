@@ -1,0 +1,1 @@
+../tripleprog/triple.c
