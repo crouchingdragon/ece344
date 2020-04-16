@@ -137,7 +137,7 @@ vaddr_t alloc_one_page(void){
 	if (!free_index) panic("ran out of memory");
     Coremap[free_index].last = 1; // the last page in the block
     Coremap[free_index].addspace = curthread->t_vmspace;
-    Coremap[free_index].state = DIRTY;
+    Coremap[free_index].state = FIXED;
     Coremap[free_index].vir_addspace = PADDR_TO_KVADDR(Coremap[free_index].phy_addspace);
 
 	// kprintf("\nAllocated One Page\n");
@@ -161,7 +161,7 @@ vaddr_t alloc_pages(int npgs){
 	for (i = start; i < end; i++){
 		Coremap[i].vir_addspace = PADDR_TO_KVADDR(Coremap[i].phy_addspace);
 		Coremap[i].addspace = curthread->t_vmspace;
-		Coremap[i].state = DIRTY;
+		Coremap[i].state = FIXED;
 		if (i == (end-1)) Coremap[i].last = 1;
 		else Coremap[i].last = 0;
 	}
@@ -245,8 +245,7 @@ free_kpages(vaddr_t addr)
 int
 vm_fault(int faulttype, vaddr_t faultaddress)
 {
-	kprintf("in vm_fault %d\n", faultaddress);
-	// kprintf("In vm_fault faultaddress: %d\n", faultaddress);	
+	// kprintf("in vm_fault %d\n", faultaddress);
 	struct addrspace *as;
 	int retval;
 	// u_int32_t permission = 0;
@@ -262,18 +261,6 @@ vm_fault(int faulttype, vaddr_t faultaddress)
     	splx(spl);
     	return EFAULT;
     }
-	// if(faulttype == VM_FAULT_READONLY){
-	// 	splx(spl);
-	// 	return EFAULT;
-	// }
-	// if(faulttype != VM_FAULT_READ){
-	// 	splx(spl);
-	// 	return EINVAL;
-	// }
-	// if(faulttype != VM_FAULT_WRITE){
-	// 	splx(spl);
-	// 	return EINVAL;
-	// }
 
     switch (faulttype){
         case VM_FAULT_READONLY:
@@ -298,23 +285,7 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 		return EFAULT;
 	}
 
-	// int i;
-
-	// for(i = 0; i < array_getnum(as->as_regions); i++){
-	// 	struct as_region *current = array_getguy(as->as_regions, i);
-	// 	end_vm = current->bottom_vm;
-	// 	start_vm = end_vm + current->npgs * PAGE_SIZE;
-	// 	if(faultaddress >= end_vm && faultaddress < start_vm){
-	// 		found = 1;
-	// 		permission = (current->region_permis);
-	// 		retval = faults(faultaddress, permission);
-	// 		splx(spl);
-	// 		return retval;
-	// 	}
-	// }
-
 	// Figuring out which region the fault occurred
-//check stack if not found
 	if(!found){
 		fault_code(faultaddress, &retval, as);
 		if(found){
@@ -476,12 +447,14 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 				}
 			// now update the PTE
 			*pte &= 0x00000fff;
-			 *pte |= *paddr;
+			*pte |= *paddr;
 			// *pte |= TLBLO_DIRTY;
 			// *pte |= TLBLO_VALID;
 	    	// *pte |= 0x00000800;
 			*pte |= 0x00000800;
 	    	//*pte |= *paddr;
+
+			// never assigning it to actual current thread
 		}
 	} else {
 
@@ -507,7 +480,7 @@ void check_levels(vaddr_t faultaddress, paddr_t* paddr){
 
 paddr_t load_seg(int id, struct addrspace* as, vaddr_t v_as) {
 
-	Coremap[id].state = 2; 
+	Coremap[id].state = DIRTY; 
 	Coremap[id].addspace = as;
 	Coremap[id].vir_addspace = v_as;
 	Coremap[id].last = 1;
