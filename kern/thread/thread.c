@@ -47,8 +47,8 @@ struct proc {
     int zomb; // 1 for has been exited, 0 for no
 	int reap;
     struct thread* who;
-	struct semaphore* enter;
-	struct semaphore* done;
+	// struct semaphore* enter;
+	// struct semaphore* done;
    
 };
 
@@ -129,8 +129,8 @@ thread_create(const char *name)
 		process[c].zomb = 0;
 		process[c].exitcode = -1;
 		process[c].who = thread;
-		process[c].done = sem_create("done", 1);
-		process[c].enter = sem_create("enter", 1);
+		// process[c].done = sem_create("done", 1);
+		// process[c].enter = sem_create("enter", 1);
 		process[c].reap = 0;
 	}
 	else {
@@ -140,8 +140,8 @@ thread_create(const char *name)
 		process[c].zomb = 0;
 		process[c].exitcode = -1;
 		process[c].who = thread;
-		process[c].done = sem_create("done", 1);
-		process[c].enter = sem_create("enter", 1);
+		// process[c].done = sem_create("done", 1);
+		// process[c].enter = sem_create("enter", 1);
 		process[c].reap = 0;
 	}
 
@@ -151,8 +151,8 @@ thread_create(const char *name)
 	//****************************************************************************************************8
 
 	thread->exitcode = kmalloc(sizeof (int));
-    thread->waitonlock = lock_create("twlock");
-    thread->waitoncv = cv_create("twcv");
+    // thread->waitonlock = lock_create("twlock");
+    // thread->waitoncv = cv_create("twcv");
 
 
 	return thread;
@@ -184,6 +184,8 @@ thread_destroy(struct thread *thread)
 	}
 
 	kfree(thread->t_name);
+
+	
 
 
 	kfree(thread);
@@ -775,25 +777,25 @@ get_exitcode(pid_t pid){
     return (process[pid].exitcode);
 }
 
-void
-P_enter(pid_t pid){
-	P(process[pid].enter);
-}
+// void
+// P_enter(pid_t pid){
+// 	P(process[pid].enter);
+// }
 
-void
-V_enter(pid_t pid){
-	V(process[pid].enter);
-}
+// void
+// V_enter(pid_t pid){
+// 	V(process[pid].enter);
+// }
 
-void
-P_done(pid_t pid){
-	P(process[pid].done);
-}
+// void
+// P_done(pid_t pid){
+// 	P(process[pid].done);
+// }
 
-void
-V_done(pid_t pid){
-	V(process[pid].done);
-}
+// void
+// V_done(pid_t pid){
+// 	V(process[pid].done);
+// }
 
 int
 reap(pid_t pid){

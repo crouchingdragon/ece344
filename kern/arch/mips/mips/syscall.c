@@ -188,80 +188,13 @@ md_forkentry(void* trap, unsigned long addr)
 
 unsigned int
 sys_sleep(unsigned int seconds){
+	kprintf("In sys_sleep\n");
     clocksleep(seconds);
     return 0;
 }
 
-// int
-// sys_getpid(int *retval) {
-//     *retval = curthread->pid;
-//     return 0;
-// }
-
-// void
-// sys__exit(int exitcode) {
-//     *curthread->exitcode = exitcode;
-//     thread_exit(); //thread_detach called in thread_exit
-// }
-
-// int sys_write(int fileDest, const void* buf, size_t size, int *retval){
-
-// 	if (fileDest != STDOUT_FILENO && fileDest != STDERR_FILENO)
-// 		return EBADF;
-
-// 	//check memory fault
-	
-// 	if(buf == NULL){
-// 		*retval = -1;
-// 		return EFAULT;
-// 	}	
-	
-// 	int spl = splhigh();
-// 	//checking for bad file number
-// 	char *momo = kmalloc((size+1)*sizeof(char));
-// 	int check = copyin((const_userptr_t) buf, momo, size);
-
-// 	//open  stdin
-// 	// struct uio con;
-// 	// struct vnode *vnd;
-// 	// char *in = kstrdup("con:"); //copied from waterloo site no idea why or wat it is
-
-//     // vfs_open(in, O_WRONLY, &vnd);
-//     // kfree(in); // wtf? idk if i shd do this im scared
-
-// 	// //copy stdin to momo or starting point to write 
-// 	// mk_kuio(&con, momo, size, 0, UIO_WRITE);
-	
-// 	//int check = VOP_WRITE(vnd, &con);
-// 	//splx(spl);
-
-// 	//checking if you are writting ?
-// 	if(check != 0){
-
-// 		//vfs_close(vnd);
-// 		kfree(momo);
-// 		*retval = -1;
-
-// 		return EFAULT;
-// 	}
-// 	else{
-// 		momo[size] = '\0';
-//         kprintf("%s", momo);
-//         kfree(momo);
-//         *retval = size;   // successful, return the count of bytes written
-//         splx(spl);  // ADD FOR ASST3
-//         return 0;
-// 	}
-// 	// vfs_close(vnd);
-// 	// kfree(momo);
-// 	// *retval = size;
-	
-// 	//return 0;
-
-// }
-
-
 int sys__time(time_t *sec, unsigned long *nanosec, int *retval){
+	kprintf("In sys__time\n");
 	
 	// declare destination variables
 	
@@ -292,142 +225,13 @@ int sys__time(time_t *sec, unsigned long *nanosec, int *retval){
 	return 0;
 }
 
-// void
-// sys__exit(int exitcode){
-// 	//*curthread->exitcode = exitcode;
-//     exitcode = 1;
-// 	//thread_exit();
-// 	return;
-// }
-
-// int
-// sys_read(int fd, void *buf, size_t buflen, int *retval) {
- 
-    
-	
-	
-// 	if (fd != STDIN_FILENO) {
-//         *retval = -1;
-//         return EBADF;
-//     }
-	
-	
-	
-// 	//check memory fault
-    
-	
-// 	if (buf == NULL){
-//         *retval = -1;
-//         return EFAULT;
-//     }
-	
-// 	if (buflen != 1){
-// 		*retval = -1;
-// 		return EUNIMP;
-// 	}
-	
-	
-// 	//char *momo = kmalloc((buflen+1)*sizeof(char));
-//     // if(copyin((const_userptr_t) buf, momo, buflen)){
-//     //     kfree(momo);
-//     //     return EFAULT;
-//     // }
-
-
-// 	// int count  = 0;
-// 	// int i;
-// 	// for(i=0;i<(int)buflen;i++){
-// 	// 	momo[i]= getch();
-// 	// 	count++;
-// 	// 	if(momo[i] == '\r')
-// 	// 		break;
-// 	// }
-// 	// momo[count] = '\0';
-// 	char momo = getch();
-
-
-//     //kfree(momo);
-//     // retval is the count of bytes read by the end of this
-//     // on error, return -1 and set erno to specific error code
-//     // reads up to buflen bytes from fd, at location specified by current seek position of file, stores them in space pointed to by buf
-//     // file must be open for reading
-//     // current seek position must be advanced by the number of bytes read
- 
-//     // check function parameters - is everything legal?
-//     // EBADF fd is not a valid file descriptor or was not opened for reading
-    
-//     // int invalid = copyout(const void *src, buf, buflen); //?
-//     // part or all of an address space pointed to by buf is invalid
-//     // if (buf == NULL) {
-//     //     *retval = -1;
-//     //     return EFAULT;
-//     // }
-//     // length of buffer is not equal to 1
-    
- 
- 
-//     // struct uio u;
-//     // struct vnode* v; // need to initialize v to something before doing operations
-//     int result;
- 
-   
- 
-//     // char* con;
-//     // con = kstrdup("con: ");
-//     // vfs_open(con, O_RDONLY, &v);
-//     // kfree(con);
- 
-//     // if (result){
-//     //     vfs_close(v);
-//     //     *retval = -1;
-//     //     return result;
-//     // }
- 
-//     // initialize uio for read/write - use mk_kuio in uio.c
-//     // offset should probably not actually be 0 (should be given by seek position)
-//    // mk_kuio(&u, momo, buflen, 0, UIO_READ);
-//     result = copyout((const void*)&momo, (userptr_t)buf, buflen);
-   
-//     if (result != 0){
-//       //  vfs_close(v);
-//         //*retval = -1;
-// 	//	kfree(momo);
-// 		*retval = -1;
-// 		return EFAULT;
-//     }
-
-	
-// 		//kfree(momo);
-		
-// 		*retval = 1;
-//         return 0;
-
-	
-	
-
-
-
-
-// 	// copyout(momo, (userptr_t) buf, u.uio_offset);
-// 	// kfree(momo);
-// 	// vfs_close(v);
-
-
-
-
-//    // *retval = u.uio_offset; // how many bytes are left after operation
-//     // *retval = 0;
- 
-//     // int val;
-//     // val = getchar();
- 
-//     //return 0;
-// }
 int
 sys_read(int filedest, char *buf, size_t size, int *retval) {
+	kprintf("In sys_read\n");
+
+	if (buf == NULL) panic("hey\n");
 
     //Check EBADF
-
     if (filedest != STDIN_FILENO) {
         *retval =-1;
 		return EBADF;
@@ -436,6 +240,7 @@ sys_read(int filedest, char *buf, size_t size, int *retval) {
     //Check EFAULT
 
     char *momo = kmalloc(size);
+	if (momo == NULL) panic("hey m8\n");
 
 
     if (copyin((const_userptr_t) buf, momo, size)) {
@@ -454,44 +259,30 @@ sys_read(int filedest, char *buf, size_t size, int *retval) {
     struct vnode *v;
  	char *con = kstrdup("con:");
 	
-   
+	if (con == NULL) panic("hey m8\n");
+
     vfs_open(con, O_RDONLY, &v);
     kfree(con);
 
-   
     mk_kuio(&u, momo, size, 0, UIO_READ);
-
-
-
     int check = VOP_READ(v, &u);
-
     
     if (check) {
-
-      
 	    vfs_close(v);
-      
 	    kfree(momo);
-      
 	    return check;   
 	}
 
-    
     copyout(momo, (userptr_t) buf, u.uio_offset);
-    
-	
 	kfree(momo);
-
-
     vfs_close(v);
-
-   
     *retval = u.uio_offset;
     return 0;
 }
 
 int
 sys_write(int filedest, const char *buf, size_t size, int *retval) {
+	// kprintf("In sys_write\n");
 
     //Check EBADF
     if (filedest != STDOUT_FILENO) {
@@ -499,7 +290,6 @@ sys_write(int filedest, const char *buf, size_t size, int *retval) {
         	return EBADF;
     }
 
-   
 
     char *momo = kmalloc(size);
     
@@ -549,17 +339,17 @@ sys_write(int filedest, const char *buf, size_t size, int *retval) {
 }
 
 int sys_fork(struct trapframe *tf, int *retval){
-
-	// int spl = splhigh();
-	P_enter(curthread->pid); // Changed interrupts to semaphores
+	kprintf("In sys_fork\n");
+	int spl = splhigh();
+	// P_enter(curthread->pid); // Changed interrupts to semaphores
 	
 	struct trapframe *duplicate = kmalloc(sizeof(struct trapframe));
 
 	//check memory availibility
 
 	if (duplicate == NULL){
-		// splx(spl);
-		V_enter(curthread->pid);
+		splx(spl);
+		// V_enter(curthread->pid);
 		return ENOMEM;
 	}
 
@@ -574,8 +364,8 @@ int sys_fork(struct trapframe *tf, int *retval){
 	if(check != 0){
 	
 		kfree(duplicate);
-		// splx(spl);
-		V_enter(curthread->pid);
+		splx(spl);
+		// V_enter(curthread->pid);
 		return ENOMEM;
 	
 	}
@@ -586,20 +376,21 @@ int sys_fork(struct trapframe *tf, int *retval){
 	if(forkcheck != 0){
 
 		kfree(duplicate);
-		// splx(spl);
-		V_enter(curthread->pid);
-		return ENOMEM;
+		splx(spl);
+		// V_enter(curthread->pid);
+		// return ENOMEM;
 
 	}
 
 	*retval = rope->pid;
-	// splx(spl);
-	V_enter(curthread->pid);
+	splx(spl);
+	// V_enter(curthread->pid);
 	return 0;
 }
 
 int
 sys_waitpid(pid_t pid, int* status, int options, int* retval){
+	kprintf("In sys_waitpid\n");
 
    if(options != 0) {
 	   *retval = -1;
@@ -669,31 +460,34 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
  
 void
 sys__exit(int exitcode){
+	kprintf("In sys__exit\n");
 	// Could use the semaphore 'enter' instead of disabling interrupts
-    // int spl;
-    // spl = splhigh();
+    int spl;
+    spl = splhigh();
 
 	/* changed to semaphores because asst4 piazza notes said not to rely on interrupts */
-	P_enter(curthread->pid);
+	// P_enter(curthread->pid);
 
 	// Decrementing count to allow access to P in waitpid
     exit_setting(curthread->pid, exitcode);
     // V_done(curthread->pid);
 
-	V_enter(curthread->pid);
+	// V_enter(curthread->pid);
 
-    // splx(spl);
+    splx(spl);
     thread_exit();
 }
  
 int
 sys_getpid(int *retval) {
+	kprintf("In sys_getpid\n");
     *retval = (int)curthread->pid;
     return 0;
 }
 
 int
 sys_execv(const char *prog, char **args){
+	kprintf("In sys_execv\n");
 
 	if(prog == NULL){
 		return EFAULT;
@@ -842,6 +636,8 @@ sys_execv(const char *prog, char **args){
 
 int
 sys_sbrk(int ammount, int* retval){
+	kprintf("In sys_sbrk\n");
+	kprintf("ammount: %d\n", ammount);
 	
 	// ammount = number of bytes of memory to allocate
 	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
@@ -881,24 +677,31 @@ sys_sbrk(int ammount, int* retval){
 		return EINVAL;
 	}
 
-	// // if ammount is less than 0, pages in heap need to be freed
-	// if (ammount < 0){
-	// 	int i;
-	// 	// free pages from end_heap to (end_heap - npages_to_free*PAGE_SIZE - 1)
-	// 	for (i = end_heap; i > new_end_heap; i--){
-	// 		free_kpages(i);
-	// 	}
-	// 	// free the pages in the page table as well
 
-	// }
+	// if ammount is less than 0, pages in heap need to be freed
+	if (ammount < 0){
+		int i;
+		// free pages from end_heap to (end_heap - npages_to_free*PAGE_SIZE - 1)
+		for (i = end_heap; i > new_end_heap; i--){
+			free_kpages(i);
+		}
+		// free the pages in the page table as well?
+
+	}
 	// // make sure the memory you're stealing is actually free
 	// else if (ammount > 0){
 		
 	// }
 
+	// if expanding the stack, make sure to allocate the pages
+	// if (ammount > 0){
+
+	// }
+
 	*retval = end_heap;
-	// curthread->t_vmspace->end_heap = new_end_heap;
-	curthread->t_vmspace->heap_size +=  (ammount / PAGE_SIZE);
+	curthread->t_vmspace->heap_size += ROUNDUP(ammount, PAGE_SIZE)/PAGE_SIZE;
+	kprintf("old end: %d    new heap size: %d    new end: %d\n",
+				end_heap, curthread->t_vmspace->heap_size, new_end_heap);
 	return 0;
 }
 

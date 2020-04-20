@@ -99,7 +99,7 @@ struct addrspace {
     size_t data_size;
     unsigned int perm;
     unsigned int old_perm;
-    struct lock* adr_access;
+    // struct lock* adr_access;
     struct as_pagetable *as_ptes[PT_SIZE];
 
 

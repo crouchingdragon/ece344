@@ -41,8 +41,8 @@ struct thread {
 
 	pid_t pid;
 	pid_t parent;
-	struct lock *waitonlock;
-	struct cv *waitoncv;
+	// struct lock *waitonlock;
+	// struct cv *waitoncv;
 	int *exitcode;
 
 };
@@ -160,17 +160,17 @@ get_exitcode(pid_t pid);
 pid_t
 get_pid(void);
 
-void
-P_enter(pid_t pid);
+// void
+// P_enter(pid_t pid);
 
-void
-V_enter(pid_t pid);
+// void
+// V_enter(pid_t pid);
 
-void
-P_done(pid_t pid);
+// void
+// P_done(pid_t pid);
 
-void
-V_done(pid_t pid);
+// void
+// V_done(pid_t pid);
 
 int
 reap(pid_t pid);

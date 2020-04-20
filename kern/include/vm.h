@@ -22,11 +22,9 @@ struct Coremap_struct {
     // page stuff
     paddr_t phy_addspace;
     vaddr_t vir_addspace;
-    off_t swap_addspace;
-    // struct lock* page_lock;
 
     // core stuff
-    int id:7;  
+    // int id:7;  
     struct addrspace* addspace;
     unsigned state:3; // freed = 0, fixed = 1, dirty = 2
     int last:2; // set this if its the last entry in a block
@@ -156,6 +154,14 @@ void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as);
 int index_from_paddr(paddr_t addr);
 
 void free_from_pt(int index);
+
+// suz
+int bad_fault(vaddr_t faultaddress, struct addrspace* as);
+paddr_t
+get_page(vaddr_t va, struct addrspace* as);
+
+int
+get_index(paddr_t paddr);
 
 // static
 // paddr_t
