@@ -38,7 +38,8 @@ struct Coremap_struct {
 // };
 
 struct Coremap_struct *Coremap;
-struct semaphore* coremap_access;
+// struct semaphore* coremap_access;
+struct lock* core_lock;
 
 // struct page {
 //     paddr_t paddr; // physical address of this page

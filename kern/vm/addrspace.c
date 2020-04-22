@@ -21,7 +21,7 @@ extern size_t numofpgs;
 struct addrspace *
 as_create(void) //FIXME: Gets interrupted after the first line and ends up at alloc_pages (where I set the next breakpoint) when I hit n
 {
-    int spl = splhigh();
+    // int spl = splhigh();
 
     kprintf("in as_create\n");
     struct addrspace *as = kmalloc(sizeof(struct addrspace));
@@ -47,7 +47,7 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
         as->as_ptes[i] = NULL;
     }
 
-    splx(spl);
+    // splx(spl);
     return as;
 }
  
@@ -137,33 +137,40 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 void
 as_destroy(struct addrspace *as)
 {
-    kprintf("IN AS DESTROY\n");
+    // kprintf("IN AS DESTROY\n");
 
     int spl = splhigh();
     // P(coremap_access);
 
     // Setting all regions to 0
-    as->start_heap = 0;
-    as->heap_size = 0;
-    as->stack = 0;
-    as->stack_size = 0;
-    as->code = 0;
-    as->code_size = 0;
-    as->data = 0;
-    as->data_size = 0;
-    as->perm = 0;
-    as->old_perm = 0;
+    // as->start_heap = 0;
+    // as->heap_size = 0;
+    // as->heap_top = 0;
+    // as->stack = 0;
+    // as->stack_size = 0;
+    // as->code = 0;
+    // as->code_size = 0;
+    // as->data = 0;
+    // as->data_size = 0;
+    // as->perm = 0;
+    // as->old_perm = 0;
 
-    unsigned i, j, free_index;
+    unsigned i, j;// free_index;
+    struct as_pagetable* temp;
+
     for (i = 0; i < PAGE_SIZE; i++){
-        if (as->as_ptes[i] == NULL) continue;
+        temp = as->as_ptes[i];
+        if (temp == NULL) continue;
         for (j = 0; j < PAGE_SIZE; j++){
-            if (as->as_ptes[i]->PTE[j] == 0) continue;
-            free_index = get_index(as->as_ptes[i]->PTE[j]);
-            free_from_core(free_index);
+            // if (as->as_ptes[i]->PTE[j] == 0) continue;
+            if (temp->PTE[j] == 0) continue;
+            // free_index = get_index(as->as_ptes[i]->PTE[j]);
+            // free_from_core(free_index);
+            free_kpages(PADDR_TO_KVADDR(temp->PTE[j]));
             as->as_ptes[i]->PTE[j] = 0;
         }
-        kfree(as->as_ptes[i]);
+        as->as_ptes[i] = NULL;
+        kfree(temp);
     }
     
     //V(coremap_access);
@@ -238,6 +245,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
         as->perm = readable | writeable | executable;
         // as->start_heap = vaddr + sz;
         as->start_heap = vaddr + npages*PAGE_SIZE;
+        as->heap_top = as->start_heap;
         // kprintf("code: %d   code mod page size = %d\n", as->code, (as->code % PAGE_FRAME));
         assert((as->code % PAGE_FRAME) == as->code);
         as->heap_size = 0;
@@ -251,6 +259,7 @@ as_define_region(struct addrspace *as, vaddr_t vaddr, size_t sz,
         as->perm = readable | writeable | executable;
         // as->start_heap = vaddr + sz;
         as->start_heap = vaddr + npages*PAGE_SIZE;
+        as->heap_top = as->start_heap;
         assert((as->data % PAGE_FRAME) == as->data);
         as->heap_size = 0; // number of pages in heap
         assert(as->start_heap != 0);

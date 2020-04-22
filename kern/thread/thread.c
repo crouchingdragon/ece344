@@ -186,7 +186,7 @@ thread_destroy(struct thread *thread)
 
 	kfree(thread->t_name);
 
-	sem_destroy(thread->lock);
+	// sem_destroy(thread->lock);
 	
 
 
@@ -577,12 +577,15 @@ thread_exit(void)
 		struct addrspace *as = curthread->t_vmspace;
 		curthread->t_vmspace = NULL;
 		as_destroy(as);
+		// (void)as;
 	}
 
 	if (curthread->t_cwd) {
 		VOP_DECREF(curthread->t_cwd);
 		curthread->t_cwd = NULL;
 	}
+
+	thread_detach(curthread);
 
 	assert(numthreads>0);
 	numthreads--;

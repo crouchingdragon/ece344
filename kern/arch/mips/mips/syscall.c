@@ -450,6 +450,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
     while (!already_exited(pid)){
         // P_done(pid);
 		thread_join(get_who(pid));
+		kprintf("WAITS HERE\n");
     }
 
     *status = get_exitcode(pid);
@@ -461,7 +462,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
  
 void
 sys__exit(int exitcode){
-	kprintf("In sys__exit\n");
+	// kprintf("In sys__exit\n");
 	// Could use the semaphore 'enter' instead of disabling interrupts
     int spl;
     spl = splhigh();
@@ -474,10 +475,12 @@ sys__exit(int exitcode){
     // V_done(curthread->pid);
 
 	// V_enter(curthread->pid);
-	cmd_print_coremap();
+	// cmd_print_coremap();
     splx(spl);
 	thread_detach(curthread);
     // thread_exit();
+	// as_destroy(curthread->t_vmspace);
+	// thread_detach(curthread);
 }
  
 int
@@ -641,85 +644,109 @@ sys_execv(const char *prog, char **args){
 int
 sys_sbrk(int ammount, int* retval){
 	kprintf("In sys_sbrk\n");
+	// int spl = splhigh();
 	// kprintf("ammount hex: 0x%x   int: %d\n", ammount, ammount);
 
 	// defining things
 	struct addrspace* as;
 	as = curthread->t_vmspace;
-	vaddr_t heap_base, heap_top, new_heap_top, stack_top;
+	vaddr_t heap_base, heap_top, new_heap_top;
+	int rounded_amt;
 	heap_base = as->start_heap;
-	heap_top = as->start_heap + as->heap_size * PAGE_SIZE;
-	stack_top = as->stack;
+	// heap_top = as->start_heap + as->heap_size * PAGE_SIZE;
+	heap_top = as->heap_top;
+
+	int max_pages = 12;
+	int heap_pgs;
 
 	// kprintf("start heap: 0x%x   dec: %d\n", heap_base, heap_base);
 
 	// Simplest case: nothing changes, just return
 	if (ammount == 0){
-		*retval = heap_top;
+		*retval = (int)heap_top;
+		// splx(spl);
 		return 0;
 	}
 	// Unaligned ammount: Better to just shoot an error - unaligned number's sign can be ambiguous
-	if ((ammount % 4) != 0){
+	if ((ammount % 4) != 0)
+	{
 		*retval = -1;
+		// splx(spl);
 		return EINVAL;
 	}
-
 	// if not alligned by a page size, should I round up to a page size? It would probably work fine without
-	if ((ammount % PAGE_SIZE) != 0) ammount = ROUNDUP(ammount, PAGE_SIZE);
-	// kprintf("rounded ammt: %d\n", ammount);
-
-	// Case 2: Decreasing the size of the heap
+	if ((ammount % PAGE_SIZE) != 0){
+		rounded_amt = ROUNDUP(ammount, PAGE_SIZE);
+		heap_pgs = rounded_amt / PAGE_SIZE;
+	}
+	else{
+		heap_pgs = ammount / PAGE_SIZE;
+	}
+	// Either ammount is negative and we decrease heap size, or positive an we extend heap
 	if (ammount < 0)
 	{
-		// kprintf("NEGATIVE\n");
+		if (heap_pgs > max_pages){
+			*retval = -1;
+			// splx(spl);
+			return EINVAL;
+		}
+		kprintf("NEGATIVE\n");
 		ammount = ammount * -1;
 		new_heap_top = heap_top - ammount;
-		// kprintf("new heap top hex: 0x%x   dec: %d\n", new_heap_top, new_heap_top);
+		kprintf("new heap top hex: 0x%x   dec: %d\n", new_heap_top, new_heap_top);
 		
 		// Does the new top go past the base of the stack?
-		if ((int)new_heap_top < (int)heap_base){
+		if ((int)new_heap_top < (int)heap_base)
+		{
 			*retval = -1;
+			// splx(spl);
 			return EINVAL;
 		}
 		// Is the region so large that the Coremap could never have held it?
-		if (is_there_space(ammount/PAGE_SIZE) == 0){
+		if (is_there_space(ammount/PAGE_SIZE) == 0)
+		{
 			*retval = -1;
+			// splx(spl);
 			return EINVAL;
 		}
 
-		// FIXME: Handle negative ammounts (free from coremap and page table)
-		// int npgs = ammount/PAGE_SIZE;
-		// kprintf("number of pages: %d\n", npgs);
-		// int i;
-		// for (i = heap_top; i < )
+		vaddr_t addr = heap_top;
+		int i;
+		while (addr != new_heap_top)
+		{
+			kprintf("HERE\n");
+			i = get_index(KVADDR_TO_PADDR(addr));
+			free_from_core(i);
+			addr -= PAGE_SIZE;
+		}
 
 		// Decrease the heap size by the number of pages now de-allocated in the heap
-		curthread->t_vmspace->heap_size -= (ammount/PAGE_SIZE);
+		curthread->t_vmspace->heap_size -= (rounded_amt/PAGE_SIZE);
+		curthread->t_vmspace->heap_top = new_heap_top;
 		*retval = heap_top;
+		// splx(spl);
 		return 0;
 	}
-	// else, it's positive so we increase the size of the heap
-	// else
-	// {
-		// kprintf("POSITIVE\n");
-		new_heap_top = heap_top + ammount;
-		// kprintf("new top  hex: 0x%x  dec: %d\n", new_heap_top, new_heap_top);
-		// kprintf("stack top  hex: 0x%x  dec: %d\n", stack_top, stack_top);
-		
-		// Are there enough free spaces in the coremap to handle the allocation?
-		if (is_there_space(ammount/PAGE_SIZE) == 0){
-			*retval = -1;
-			return ENOMEM;
-		}
-		// if ((int)new_heap_top >= (int)stack_top){
-		// 	*retval = -1;
-		// 	return ENOMEM;
-		// }
-
-		// Increase the heap size by the number of pages now allocated in the heap
-		curthread->t_vmspace->heap_size += (ammount/PAGE_SIZE);
-	// }
-	*retval = heap_top;
+	// Are there enough free spaces in the coremap to handle the allocation?
+	if (is_there_space(ammount/PAGE_SIZE) == 0){
+		*retval = -1;
+		// splx(spl);
+		return ENOMEM;
+	}
+	if (heap_pgs > max_pages){
+		*retval = -1;
+		// splx(spl);
+		return EINVAL;
+	}
+	// Increase the heap size by the number of pages now allocated in the heap
+	curthread->t_vmspace->heap_size += (rounded_amt/PAGE_SIZE);
+	new_heap_top = heap_top + ammount;
+	curthread->t_vmspace->heap_top = new_heap_top;
+	kprintf("new heap top: %d\n", new_heap_top);
+	kprintf("return value (old heap top): %d\n", heap_top);
+	
+	*retval = (int)heap_top;
+	// splx(spl);
 	return 0;
 }
 

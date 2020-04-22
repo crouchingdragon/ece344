@@ -32,6 +32,7 @@ struct addrspace {
 #else
     vaddr_t start_heap;
     size_t heap_size;
+    vaddr_t heap_top;
     vaddr_t stack;
     size_t stack_size;
     vaddr_t code;
