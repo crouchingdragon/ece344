@@ -16,63 +16,9 @@ struct vnode;
  * You write this.
  */
 
-// page size is 4KB
-// an array of these is the second layer
-// pte size should be 4 bytes = 32 bits = just a physical address I guess (whaaatttt???)
-// struct pt_entry{
-//     // how do you index? I remember CPU index and index in coremap somewhere
-//     // u_int32_t frame_number:10; // right number of bits?
-//     paddr_t paddr; // physical address of this page
-//     off_t swap_addr; //swap address (in case its swapped to disk)
-//     struct lock *page_lock; // don't modify this entry unless you have access
-//     unsigned valid:1;
-//     unsigned dirty:1;
-//     u_int32_t permission;
-// };
-
-// // first 10 bits should index into this layer
-// struct first_layer{
-//     // struct pt_entry* PTE[PT_SIZE];
-//     u_int32_t* PTE[PT_SIZE]; // pointer to the next page table (array of page table entries which simplpy hold physical addresses)
-// }
-
-// struct addr{
-//     struct first_layer first[PT_SIZE]; // index into first layer depending on first 10 bits (which pointer to the next layer should be used)
-//     vaddr_t heap_limit; // cannot grow upwards past this point
-//     vaddr_t start_heap;
-//     vaddr_t end_heap;
-//     paddr_t stack_base;
-
-// }
-
-/*  First 10 bits of virtual address index into addrspace
-    Next 10 bits index into whichever page table the particular
-    addrspace points to
-*/
-
 struct as_pagetable{
     paddr_t PTE[PT_SIZE];
 };
- 
-// struct as_region{
-//     vaddr_t start;
-    // vaddr_t end;
-    // size_t npgs;
-    // unsigned int region_permis;
-    // unsigned int old_perm;
-// };
-
-// struct addrspace2{
-//     vaddr_t vm_base;
-//     paddr_t start_heap;
-//     paddr_t end_heap;
-//     paddr_t stackpbase;
-//     u_int32_t permission;
-//     u_int32_t old_permission;
-//     u_int32_t npgs;
-//     struct lock* adr_access;
-//     struct as_pagetable* pages;
-// };
  
 struct addrspace {
 #if OPT_DUMBVM
@@ -84,11 +30,6 @@ struct addrspace {
     size_t as_npages2;
     paddr_t as_stackpbase;
 #else
-    // assuming all regions will always have the same permissions
-    // struct as_region heap;
-    // struct as_region stack;
-    // struct as_region code;
-    // struct as_region data;
     vaddr_t start_heap;
     size_t heap_size;
     vaddr_t stack;
@@ -99,38 +40,7 @@ struct addrspace {
     size_t data_size;
     unsigned int perm;
     unsigned int old_perm;
-    // struct lock* adr_access;
     struct as_pagetable *as_ptes[PT_SIZE];
-
-
-    /* Put stuff here for your VM system */
-    // u_int32_t permissions;
-    // vaddr_t start_heap; // user heap start
-    // vaddr_t end_heap; // user heap end
-    // paddr_t as_stackpbase; // necessary?
-    // struct vnode *vm_obj; // needed?
-    // vaddr_t as_vbase1; 
-    // struct as_pagetable *as_ptes[PT_SIZE];
-
-    // vaddr_t vm_base;
-    // paddr_t start_heap;
-    // paddr_t end_heap;
-    // paddr_t stackpbase;
-    // u_int32_t permission;
-    // u_int32_t old_permission;
-    // u_int32_t npgs;
-    // struct lock* adr_access;
-    // struct as_pagetable* pages;
-
-    ///////////// DUMB VM STUFF ////////////////
-    // vaddr_t as_vbase1;
-    // paddr_t as_pbase1;
-    // size_t as_npages1;
-    // vaddr_t as_vbase2;
-    // paddr_t as_pbase2;
-    // size_t as_npages2;
-    // paddr_t as_stackpbase;
-
 #endif
 };
  

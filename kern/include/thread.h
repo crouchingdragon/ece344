@@ -44,6 +44,7 @@ struct thread {
 	// struct lock *waitonlock;
 	// struct cv *waitoncv;
 	int *exitcode;
+	struct semaphore* lock;
 
 };
 
@@ -128,6 +129,8 @@ int thread_join(struct thread *th);
 
 
 void initialize(int boot);
+
+struct thread* get_who(pid_t);
 
 
 

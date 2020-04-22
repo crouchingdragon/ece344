@@ -112,6 +112,7 @@ common_prog(int nargs, char **args)
 	}
 
 	return thread_join(thread);
+	return 0;
 }
 
 /*

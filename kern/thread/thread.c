@@ -16,7 +16,7 @@
 #include <kern/limits.h>
 #include <../include/vm.h>
 #include <synch.h>
-//#include <syscall.h>
+#include <syscall.h>
 
 
 /* States a thread can be in. */
@@ -47,7 +47,7 @@ struct proc {
     int zomb; // 1 for has been exited, 0 for no
 	int reap;
     struct thread* who;
-	// struct semaphore* enter;
+	struct semaphore* enter;
 	// struct semaphore* done;
    
 };
@@ -114,6 +114,7 @@ thread_create(const char *name)
 	
 	// If you add things to the thread structure, be sure to initialize
 	// them here.
+	thread->lock = sem_create("thread_lock", 0);
 	
 	int c = 0;
 
@@ -130,7 +131,7 @@ thread_create(const char *name)
 		process[c].exitcode = -1;
 		process[c].who = thread;
 		// process[c].done = sem_create("done", 1);
-		// process[c].enter = sem_create("enter", 1);
+		// process[c].enter = sem_create("enter", 0);
 		process[c].reap = 0;
 	}
 	else {
@@ -141,7 +142,7 @@ thread_create(const char *name)
 		process[c].exitcode = -1;
 		process[c].who = thread;
 		// process[c].done = sem_create("done", 1);
-		// process[c].enter = sem_create("enter", 1);
+		// process[c].enter = sem_create("enter", 0);
 		process[c].reap = 0;
 	}
 
@@ -185,6 +186,7 @@ thread_destroy(struct thread *thread)
 
 	kfree(thread->t_name);
 
+	sem_destroy(thread->lock);
 	
 
 
@@ -723,22 +725,30 @@ mi_threadstart(void *data1, unsigned long data2,
 //     // return threadmap[pid];
 // }
 
-// void
-// thread_detach(struct thread *th) {
+void
+thread_detach(struct thread *th) {
 //     lock_acquire(th->waitonlock);
 //     cv_broadcast(th->waitoncv, th->waitonlock);
 //     lock_release(th->waitonlock);
-// }
+	V(th->lock);
+}
 
 int thread_join(struct thread * th)
 {
 //     lock_acquire(th->waitonlock);
 //     cv_wait(th->waitoncv, th->waitonlock);
 //     lock_release(th->waitonlock);
-	clocksleep(5);
+
+	P(th->lock);
+
+	// int status;
+	// int retval;
+	// int options = 0;
+	// sys_waitpid(th->pid, &status, options, &retval);
+	// clocksleep(5);
         
-       (void)th;  // suppress warning until code gets written
-        return 0;
+    //    (void)th;  // suppress warning until code gets written
+    return 0;
 }
 
 /* waitpid helper functions */
@@ -775,6 +785,10 @@ already_exited(pid_t pid){
 int
 get_exitcode(pid_t pid){
     return (process[pid].exitcode);
+}
+
+struct thread* get_who(pid_t pid){
+	return (process[pid].who);
 }
 
 // void

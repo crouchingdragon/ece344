@@ -242,9 +242,9 @@ void
 cv_wait(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	// assert(lock != NULL);
-	// assert(lock_do_i_hold(lock));
-	// assert(cv != NULL);
+	assert(lock != NULL);
+	assert(lock_do_i_hold(lock));
+	assert(cv != NULL);
 	// assert(!in_interrupt);
 
 	lock_release(lock);
@@ -263,9 +263,9 @@ void
 cv_signal(struct cv *cv, struct lock *lock)
 {
 	// Write this
-	// assert(lock != NULL);
+	assert(lock != NULL);
 	assert(lock_do_i_hold(lock));
-	// assert(cv != NULL);
+	assert(cv != NULL);
 	// assert(!in_interrupt);
 
 	int spl;

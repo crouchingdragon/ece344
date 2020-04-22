@@ -153,7 +153,7 @@ void fault_data(vaddr_t faultaddress, int* retval, struct addrspace* as);
 
 int index_from_paddr(paddr_t addr);
 
-void free_from_pt(int index);
+void free_from_core(int index);
 
 // suz
 int bad_fault(vaddr_t faultaddress, struct addrspace* as);
@@ -162,6 +162,21 @@ get_page(vaddr_t va, struct addrspace* as);
 
 int
 get_index(paddr_t paddr);
+
+int
+is_there_space(int npages);
+
+vaddr_t
+alloc_user_page(vaddr_t);
+
+int
+random_index(void);
+
+int
+free_user_page(vaddr_t);
+
+void
+kill_proc_map();
 
 // static
 // paddr_t

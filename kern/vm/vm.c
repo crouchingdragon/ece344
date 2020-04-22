@@ -29,6 +29,7 @@ u_int32_t new_start = 0;
 int init_vm = 0;
 int check = 0;
 int found = 0;
+int free = 0;
  
 u_int32_t firstpage_addspace;  
 u_int32_t lastpage_addspace;
@@ -85,12 +86,14 @@ vm_bootstrap(void)
             Coremap[i].vir_addspace = 0xDEADBEEF;
             Coremap[i].state = FREE;
             Coremap[i].last = 0;
+			free++;
         }
         else {
             Coremap[i].vir_addspace = PADDR_TO_KVADDR(Coremap[i].phy_addspace);
             Coremap[i].state = FIXED;
             Coremap[i].last = 1;
             new_start++;
+			free--;
                        
         }
     }
@@ -148,19 +151,81 @@ has_space(int npgs){
     return 0;
 }
 
+int
+is_there_space(int npages)
+{
+	if (npages > free) return 0;
+	return 1;
+}
+
+vaddr_t
+alloc_user_page(vaddr_t faultaddress)
+{
+	int spl, free_index;
+	spl = splhigh();
+	kprintf("in alloc user page\n");
+	// if (free == 0) panic("NEED TO HANDLE PAGING\n");
+	if (free == 0) free_index = free_user_page(faultaddress);
+	else free_index = is_free();
+	if (free_index < 0) panic("\nWeird. Something went wrong.\n");
+	// if (free_index < 0) free_index = free_user_page();
+    Coremap[free_index].last = 1; // the last page in the block
+    Coremap[free_index].addspace = curthread->t_vmspace;
+    Coremap[free_index].state = DIRTY;
+    Coremap[free_index].vir_addspace = PADDR_TO_KVADDR(Coremap[free_index].phy_addspace);
+	free--;
+	kprintf("Allocated: Coremap[%d]   phys = %d   vir = %d\n", free_index, Coremap[free_index].phy_addspace, Coremap[free_index].vir_addspace);
+    // V(coremap_access);
+	splx(spl);
+    return (Coremap[free_index].vir_addspace);
+}
+
+int
+random_index(void)
+{
+	return ((random() % (numofpgs - new_start)) + new_start);
+}
+
+int
+free_user_page(vaddr_t faultaddress)
+{
+	kprintf("Looking randomly for a page to flush\n");
+	int index, found, state;
+	state = FIXED;
+	while (state == FIXED){
+		index = random_index();
+		state = Coremap[index].state;
+	}
+	kprintf("Found a page to flush\n");
+
+	assert(index > 0);
+	assert((unsigned)index < numofpgs);
+
+	free_from_core(index);
+
+	(void)found;
+	(void)faultaddress;
+
+	// tlb handler should do this for us
+	// found = TLB_Probe(faultaddress, TLBLO_INVALID());
+	// if (found != -1) TLB_Write(TLBHI_INVALID(found), TLBLO_INVALID(), found);
+	return index;
+}
+
 vaddr_t alloc_one_page(void){
     // P(coremap_access);
-	int spl;
+	int spl, free_index;
 	spl = splhigh();
 	kprintf("in alloc one page\n");
-	// cmd_print_coremap();
-    int free_index = is_free();
-	// kprintf("allocating one page at index %d\n", free_index);
-	if (!free_index) panic("ran out of memory");
+	// if (free == 0) panic("NEED TO HANDLE PAGING\n");
+	if (free == 0) free_index = free_user_page(0); // int doesn't matter
+    else free_index = is_free();
+	if (free_index < 0) panic("\nran out of memory\n");
     Coremap[free_index].last = 1; // the last page in the block
     Coremap[free_index].addspace = curthread->t_vmspace;
     Coremap[free_index].state = FIXED;
     Coremap[free_index].vir_addspace = PADDR_TO_KVADDR(Coremap[free_index].phy_addspace);
+	free--;
 	kprintf("Allocated: Coremap[%d]   phys = %d   vir = %d\n", free_index, Coremap[free_index].phy_addspace, Coremap[free_index].vir_addspace);
     // V(coremap_access);
 	splx(spl);
@@ -183,6 +248,7 @@ vaddr_t alloc_pages(int npgs){
 		Coremap[i].state = FIXED; //FIXME: should be fixed for kernel pages but free for user pages
 		if (i == (end-1)) Coremap[i].last = 1;
 		else Coremap[i].last = 0;
+		free--;
 		kprintf("Allocated: Coremap[%d].physaddspace = %d\n", i, Coremap[i].phy_addspace);
 	}
 	// kprintf("\nAllocated %d pages\n", npgs);
@@ -200,6 +266,13 @@ alloc_kpages(int npages)
     if (npages == 1) return (alloc_one_page());
     return (alloc_pages(npages));
 }
+
+// paddr_t
+// alloc_upages(int npages)
+// {
+//     if (npages == 1) return (alloc_one_page());
+//     return (alloc_pages(npages));
+// }
 
 int
 index_from_vaddr(vaddr_t addr){
@@ -223,10 +296,23 @@ index_from_paddr(paddr_t addr){
 }
 
 void
-free_from_pt(int index){
+free_from_core(int index){
 	Coremap[index].state = FREE;
 	Coremap[index].addspace = NULL;
 	Coremap[index].last = 0;
+	free++;
+}
+
+void
+kill_proc_map(){
+	unsigned i;
+	for (i = 0; i < numofpgs; i++){
+		if (Coremap[i].state == FIXED) continue;
+		Coremap[i].state = FREE;
+		Coremap[i].addspace = NULL;
+		Coremap[i].vir_addspace = 0;
+		Coremap[i].last = 0;
+	}
 }
  
 void
@@ -242,10 +328,10 @@ free_kpages(vaddr_t addr)
 	// int i = index_from_vaddr(addr);
 	int i = get_index(KVADDR_TO_PADDR(addr));
 	while (Coremap[i].last != 1) {
-		free_from_pt(i);
+		free_from_core(i);
 		i++;
 	}
-	free_from_pt(i);
+	free_from_core(i);
 	kprintf("just freed stuff\n");
 	cmd_print_coremap();
 	splx(spl);
@@ -284,41 +370,58 @@ vm_fault(int faulttype, vaddr_t faultaddress)
 
 	// make sure the current process has an actual address space here
 	if (curthread->t_vmspace == NULL) {
-		panic("process space is null\n");
+		// panic("process space is null\n");
+		kprintf("CURTHREAD VMSPACE IS NULL\n");
 		splx(spl);
 		return EFAULT;
 	}
 
 	// If the fault address is not in a valid region, it's a bad fault
 	if (bad_fault(faultaddress, curthread->t_vmspace)){
-		// panic("failing on faultaddress %d\n", faultaddress);
-		kprintf("failing on faultaddress %d\n", faultaddress);
+		// kprintf("failing on faultaddress %d\n", faultaddress);
+		kprintf("BAD ADDRESS\n");
 		splx(spl);
 		return EFAULT;
 	}
 
+	if (free == 0){
+		kprintf("NO FREE PAGES\n");
+		splx(spl);
+		return ENOMEM;
+	}
 	// if it's not a bad address, locate the address in the page table
 	paddr_t page = get_page(faultaddress, curthread->t_vmspace);
-	if (page == 0) panic("page has address 0\n");
-
+	if (page == ENOMEM){
+		kprintf("NO FREE PAGES 2\n");
+		splx(spl);
+		return ENOMEM;
+	}
 	// update the TLB entries so that this address won't fault anymore
-	u_int32_t tlb_end, tlb_start, i;
-	for (i = 0; i < NUM_TLB; i++){
-		TLB_Read(&tlb_end, &tlb_start, i);
-		// if (!(tlb_start & TLBLO_VALID)){
-		if (tlb_start & TLBLO_VALID) continue;
+	u_int32_t entryhi, entrylo, index;
+	// entryhi = faultaddress;
+	// entrylo = page | TLBLO_VALID | TLBLO_DIRTY;
+
+	// trying to use probe first - if it exists, write to it
+	// int tlb_index = TLB_Probe(entryhi, 0);
+	// if (tlb_index >= 0){
+	// 	TLB_Write(entryhi, entrylo, tlb_index);
+	// }
+
+	// else look for an invalid tlb entry
+	for (index = 0; index < NUM_TLB; index++){
+		TLB_Read(&entryhi, &entrylo, index);
+		if (entrylo & TLBLO_VALID) continue;
 			//fill first non-valid one
-			tlb_end = faultaddress;
-			tlb_start = page | TLBLO_VALID | TLBLO_DIRTY; 
-			TLB_Write(tlb_end, tlb_start, i);
+			entryhi = faultaddress;
+			entrylo = page | TLBLO_VALID | TLBLO_DIRTY; 
+			TLB_Write(entryhi, entrylo, index);
 			splx(spl);
 			return 0;
-		// }
 	}
-	// no invalid ones => pick entry and random and expel it
-	tlb_end = faultaddress;
-	tlb_start = page | TLBLO_VALID;
-	TLB_Random(tlb_end, tlb_start);
+	// no invalid ones => pick entry at random and expel it
+	entryhi = faultaddress;
+	entrylo = page | TLBLO_VALID;
+	TLB_Random(entryhi, entrylo);
 
 	splx(spl);
 	return 0;
@@ -336,7 +439,7 @@ bad_fault(vaddr_t faultaddress, struct addrspace* as)
 	if (faultaddress >= as->data && faultaddress < as->data + as->data_size * PAGE_SIZE){
 		return 0;
 	}
-	if (faultaddress < USERSTACK && faultaddress >= (USERSTACK - 1536 * PAGE_SIZE)){ // changed from 1024
+	if (faultaddress < USERSTACK && faultaddress >= as->stack){
 		return 0;
 	}
 	return 1;
@@ -353,6 +456,9 @@ get_page(vaddr_t va, struct addrspace* as)
 	// middle 10 bits indexes the particular page 
 	page_index = (va & 0x003ff000) >> 12;
 
+	assert(table_index < PT_SIZE);
+	assert(page_index < PT_SIZE);
+
 	// check if that directory exists
 	if (as->as_ptes[table_index]){
 		// check if the associated page exists
@@ -360,14 +466,16 @@ get_page(vaddr_t va, struct addrspace* as)
 			// return this page table's address
 			return (as->as_ptes[table_index]->PTE[page_index]);
 		}
+		// if (free == 0) panic("\nNEED TO HANDLE PAGING\n");
 		// page doesn't exist but directory does, so make new page and save physical address of it
 		paddr_t new_page;
-		new_page = KVADDR_TO_PADDR(alloc_one_page());
-		if (!new_page) panic("no new page could be allocated\n");
+		new_page = KVADDR_TO_PADDR(alloc_user_page(va));
+		if (!new_page) return ENOMEM;
 		// otherwise, set the page index to the address, and return the page
 		as->as_ptes[table_index]->PTE[page_index] = new_page;
 		return (as->as_ptes[table_index]->PTE[page_index]);
 	}
+	// if (free == 0) panic("\nNEED TO HANDLE PAGING\n");
 	// if the directory doesn't exist, create it and the pages it should point to
 	int i;
 	as->as_ptes[table_index] = (struct as_pagetable*)kmalloc(sizeof(struct as_pagetable));
@@ -378,8 +486,11 @@ get_page(vaddr_t va, struct addrspace* as)
 	}
 	// now that the directory exists, create the page
 	paddr_t new_page;
-	new_page = KVADDR_TO_PADDR(alloc_one_page());
-	if (!new_page) panic("no new page could be allocated\n");
+	new_page = KVADDR_TO_PADDR(alloc_user_page(va));
+	if (!new_page){
+		kfree(as->as_ptes[table_index]);
+		return ENOMEM;
+	}
 	// otherwise, set the page index to the address, and return the page
 	as->as_ptes[table_index]->PTE[page_index] = new_page;
 	return (as->as_ptes[table_index]->PTE[page_index]);

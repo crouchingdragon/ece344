@@ -160,6 +160,7 @@ mips_syscall(struct trapframe *tf)
 void
 md_forkentry(void* trap, unsigned long addr)
 {
+	kprintf("IN MD FORKENTRY\n");
 	/*
 	 * This function is provided as a reminder. You need to write
 	 * both it and the code that calls it.
@@ -346,14 +347,13 @@ int sys_fork(struct trapframe *tf, int *retval){
 	struct trapframe *duplicate = kmalloc(sizeof(struct trapframe));
 
 	//check memory availibility
-
 	if (duplicate == NULL){
 		splx(spl);
 		// V_enter(curthread->pid);
 		return ENOMEM;
 	}
 
-//copy tf mem to duplicate
+	//copy tf mem to duplicate
 	memcpy(duplicate, tf, sizeof(struct trapframe));
 	
 	struct addrspace *adsp;
@@ -449,6 +449,7 @@ sys_waitpid(pid_t pid, int* status, int options, int* retval){
 	// Why does this work?
     while (!already_exited(pid)){
         // P_done(pid);
+		thread_join(get_who(pid));
     }
 
     *status = get_exitcode(pid);
@@ -473,15 +474,17 @@ sys__exit(int exitcode){
     // V_done(curthread->pid);
 
 	// V_enter(curthread->pid);
-
+	cmd_print_coremap();
     splx(spl);
-    thread_exit();
+	thread_detach(curthread);
+    // thread_exit();
 }
  
 int
 sys_getpid(int *retval) {
 	kprintf("In sys_getpid\n");
     *retval = (int)curthread->pid;
+	// kprintf("pid %d\n", curthread->pid);
     return 0;
 }
 
@@ -634,74 +637,89 @@ sys_execv(const char *prog, char **args){
 
 }
 
+/* ammount: number of bytes of memory to allocate in the heap*/
 int
 sys_sbrk(int ammount, int* retval){
 	kprintf("In sys_sbrk\n");
-	kprintf("ammount: %d\n", ammount);
-	
-	// ammount = number of bytes of memory to allocate
-	// 1) Make sure ammount results in an alligned memory location, if not, round up to the nearest one
-	// 2) Make sure ammount is not going to put you past your heap start value (max heap size). If so, return error
-	// 3) Return ENOMEM if sufficient virtual memory to satisfy the request was not available
-	// 4) EINVAL if the request would move the "break" below its initial value (reducing heap size with -ve ammount until it's past its start)
-	if (ammount >= (4096*1024*256)){
-		*retval = -1;
-		return ENOMEM;
-	}
-    if (ammount <= (-4096*1024*256)){
-		*retval = -1;
-		return EINVAL;
-	}
-	// heap size is number of pages in heap
-	int end_heap = (int)curthread->t_vmspace->start_heap + (int)curthread->t_vmspace->heap_size * PAGE_SIZE;
-	int new_end_heap = end_heap + ammount;
+	// kprintf("ammount hex: 0x%x   int: %d\n", ammount, ammount);
 
-	// probably not necessary to have as a separate case
+	// defining things
+	struct addrspace* as;
+	as = curthread->t_vmspace;
+	vaddr_t heap_base, heap_top, new_heap_top, stack_top;
+	heap_base = as->start_heap;
+	heap_top = as->start_heap + as->heap_size * PAGE_SIZE;
+	stack_top = as->stack;
+
+	// kprintf("start heap: 0x%x   dec: %d\n", heap_base, heap_base);
+
+	// Simplest case: nothing changes, just return
 	if (ammount == 0){
-		*retval = end_heap;
+		*retval = heap_top;
 		return 0;
 	}
-
-	if (new_end_heap < (int)curthread->t_vmspace->start_heap){
-		*retval = -1;
-		return EINVAL;
-	}
-	// fails here
-	if (new_end_heap > (int)(USERSTACK - 1024 * PAGE_SIZE)){
+	// Unaligned ammount: Better to just shoot an error - unaligned number's sign can be ambiguous
+	if ((ammount % 4) != 0){
 		*retval = -1;
 		return EINVAL;
 	}
 
-	if (!(new_end_heap % PAGE_SIZE)){
-		*retval = -1;
-		return EINVAL;
-	}
+	// if not alligned by a page size, should I round up to a page size? It would probably work fine without
+	if ((ammount % PAGE_SIZE) != 0) ammount = ROUNDUP(ammount, PAGE_SIZE);
+	// kprintf("rounded ammt: %d\n", ammount);
 
-
-	// if ammount is less than 0, pages in heap need to be freed
-	if (ammount < 0){
-		int i;
-		// free pages from end_heap to (end_heap - npages_to_free*PAGE_SIZE - 1)
-		for (i = end_heap; i > new_end_heap; i--){
-			free_kpages(i);
-		}
-		// free the pages in the page table as well?
-
-	}
-	// // make sure the memory you're stealing is actually free
-	// else if (ammount > 0){
+	// Case 2: Decreasing the size of the heap
+	if (ammount < 0)
+	{
+		// kprintf("NEGATIVE\n");
+		ammount = ammount * -1;
+		new_heap_top = heap_top - ammount;
+		// kprintf("new heap top hex: 0x%x   dec: %d\n", new_heap_top, new_heap_top);
 		
+		// Does the new top go past the base of the stack?
+		if ((int)new_heap_top < (int)heap_base){
+			*retval = -1;
+			return EINVAL;
+		}
+		// Is the region so large that the Coremap could never have held it?
+		if (is_there_space(ammount/PAGE_SIZE) == 0){
+			*retval = -1;
+			return EINVAL;
+		}
+
+		// FIXME: Handle negative ammounts (free from coremap and page table)
+		// int npgs = ammount/PAGE_SIZE;
+		// kprintf("number of pages: %d\n", npgs);
+		// int i;
+		// for (i = heap_top; i < )
+
+		// Decrease the heap size by the number of pages now de-allocated in the heap
+		curthread->t_vmspace->heap_size -= (ammount/PAGE_SIZE);
+		*retval = heap_top;
+		return 0;
+	}
+	// else, it's positive so we increase the size of the heap
+	// else
+	// {
+		// kprintf("POSITIVE\n");
+		new_heap_top = heap_top + ammount;
+		// kprintf("new top  hex: 0x%x  dec: %d\n", new_heap_top, new_heap_top);
+		// kprintf("stack top  hex: 0x%x  dec: %d\n", stack_top, stack_top);
+		
+		// Are there enough free spaces in the coremap to handle the allocation?
+		if (is_there_space(ammount/PAGE_SIZE) == 0){
+			*retval = -1;
+			return ENOMEM;
+		}
+		// if ((int)new_heap_top >= (int)stack_top){
+		// 	*retval = -1;
+		// 	return ENOMEM;
+		// }
+
+		// Increase the heap size by the number of pages now allocated in the heap
+		curthread->t_vmspace->heap_size += (ammount/PAGE_SIZE);
 	// }
-
-	// if expanding the stack, make sure to allocate the pages
-	// if (ammount > 0){
-
-	// }
-
-	*retval = end_heap;
-	curthread->t_vmspace->heap_size += ROUNDUP(ammount, PAGE_SIZE)/PAGE_SIZE;
-	kprintf("old end: %d    new heap size: %d    new end: %d\n",
-				end_heap, curthread->t_vmspace->heap_size, new_end_heap);
+	*retval = heap_top;
 	return 0;
 }
 
