@@ -16,12 +16,13 @@
  * used. The cheesy hack versions in dumbvm.c are used instead.
  */
 extern u_int32_t new_start;
+extern int free;
 
 extern size_t numofpgs;
 struct addrspace *
 as_create(void) //FIXME: Gets interrupted after the first line and ends up at alloc_pages (where I set the next breakpoint) when I hit n
 {
-    // int spl = splhigh();
+    int spl = splhigh();
 
     kprintf("in as_create\n");
     struct addrspace *as = kmalloc(sizeof(struct addrspace));
@@ -47,7 +48,7 @@ as_create(void) //FIXME: Gets interrupted after the first line and ends up at al
         as->as_ptes[i] = NULL;
     }
 
-    // splx(spl);
+    splx(spl);
     return as;
 }
  
@@ -139,43 +140,55 @@ as_destroy(struct addrspace *as)
 {
     // kprintf("IN AS DESTROY\n");
 
-    int spl = splhigh();
-    // P(coremap_access);
+    // int spl = splhigh();
 
-    // Setting all regions to 0
-    // as->start_heap = 0;
-    // as->heap_size = 0;
-    // as->heap_top = 0;
-    // as->stack = 0;
-    // as->stack_size = 0;
-    // as->code = 0;
-    // as->code_size = 0;
-    // as->data = 0;
-    // as->data_size = 0;
-    // as->perm = 0;
-    // as->old_perm = 0;
-
-    unsigned i, j;// free_index;
+    unsigned i;
     struct as_pagetable* temp;
+
+    lock_acquire(core_lock);
+    for (i = 0; i < numofpgs; i++){
+        if (Coremap[i].state != DIRTY) continue;
+        Coremap[i].state = FREE;
+        Coremap[i].addspace = NULL;
+        Coremap[i].last = 0;
+        free++;
+    }
+    lock_release(core_lock);
 
     for (i = 0; i < PAGE_SIZE; i++){
         temp = as->as_ptes[i];
-        if (temp == NULL) continue;
-        for (j = 0; j < PAGE_SIZE; j++){
-            // if (as->as_ptes[i]->PTE[j] == 0) continue;
-            if (temp->PTE[j] == 0) continue;
-            // free_index = get_index(as->as_ptes[i]->PTE[j]);
-            // free_from_core(free_index);
-            free_kpages(PADDR_TO_KVADDR(temp->PTE[j]));
-            as->as_ptes[i]->PTE[j] = 0;
-        }
-        as->as_ptes[i] = NULL;
-        kfree(temp);
+        if (temp != NULL) kfree(temp);
     }
+
+    kfree(as);
+    // splx(spl);
+
+    // for (i = 0; i < PAGE_SIZE; i++){
+    //     temp = as->as_ptes[i];
+    //     if (temp == NULL) continue;
+    //     for (j = 0; j < PAGE_SIZE; j++){
+    //         // if (as->as_ptes[i]->PTE[j] == 0) continue;
+    //         if (temp->PTE[j] == 0) continue;
+    //         // free_index = get_index(as->as_ptes[i]->PTE[j]);
+    //         // free_from_core(free_index);
+
+    //         // free_kpages(PADDR_TO_KVADDR(temp->PTE[j]));
+    //         // as->as_ptes[i]->PTE[j] = 0;
+
+    //         free_index = get_index(temp->PTE[j]);
+    //         kprintf("ADDRESS: %d   INDEX: %d\n", temp->PTE[j], free_index);
+    //         Coremap[free_index].state = FREE;
+    //         Coremap[free_index].addspace = NULL;
+    //         Coremap[free_index].last = 0;
+    //         free++;
+    //         kprintf("FREE PAGES: %d\n", free);
+    //     }
+    //     as->as_ptes[i] = NULL;
+    //     kfree(temp);
+    // }
     
     //V(coremap_access);
-    kfree(as);
-    splx(spl);
+    // kfree(as);
 }
 
 // from dumb vm
@@ -336,6 +349,7 @@ as_define_stack(struct addrspace *as, vaddr_t *stackptr)
     // assert(as->as_stackpbase != 0);
     // (void)as;
     as->stack = USERSTACK - DUMBVM_STACKPAGES * PAGE_SIZE;
+    // as->stack = USERSTACK - 8000 * PAGE_SIZE;
     kprintf("In stack: stack top = %d\n", as->stack);
  
     /* Initial user-level stack pointer */

@@ -337,15 +337,8 @@ kill_proc_map(){
 void
 free_kpages(vaddr_t addr)
 {
-	int int_flag = 0;
-	if (!in_interrupt){ // If interrupts have already been disabled and it gets here, no need to use semaphore
-		// P(coremap_access);
-		lock_acquire(core_lock);
-		int_flag = 1;
-	}
-	// int spl;
-	// spl = splhigh();
-	// int i = index_from_vaddr(addr);
+	clocksleep(10);
+	lock_acquire(core_lock);
 	int i = get_index(KVADDR_TO_PADDR(addr));
 	while (Coremap[i].last != 1) {
 		free_from_core(i);
@@ -354,13 +347,7 @@ free_kpages(vaddr_t addr)
 	}
 	free_from_core(i);
 	kprintf("FREE PAGES: %d\n", free);
-	// kprintf("just freed Coremap[%d], vaddr = %d\n", i, addr);
-	// cmd_print_coremap();
-	// splx(spl);
-	if (int_flag){
-		// V(coremap_access);
-		lock_release(core_lock);
-	}
+	lock_release(core_lock);
 }
 
 int

@@ -478,7 +478,7 @@ sys__exit(int exitcode){
 	// cmd_print_coremap();
     splx(spl);
 	thread_detach(curthread);
-    // thread_exit();
+    thread_exit();
 	// as_destroy(curthread->t_vmspace);
 	// thread_detach(curthread);
 }
@@ -625,11 +625,13 @@ sys_execv(const char *prog, char **args){
         ptr[i] = (userptr_t)stackptr;
     }
 
-	for (i=numargs-1; i >= 0; i--) {
-      stackptr -= 4;
-      result = copyout(ptr+i, (userptr_t) stackptr, 4);
-      if (result) return result;
-    }
+	unsigned index;
+
+	for (index = 0; index < sizeof(temp_args); i++){
+		// temp_args[i] = NULL;
+		kfree(temp_args[i]);
+	}
+	kfree(temp_args);
 
 	kfree(progname);
 
@@ -656,8 +658,8 @@ sys_sbrk(int ammount, int* retval){
 	// heap_top = as->start_heap + as->heap_size * PAGE_SIZE;
 	heap_top = as->heap_top;
 
-	int max_pages = 12;
-	int heap_pgs;
+	unsigned max_pages = 10;
+	unsigned heap_pgs;
 
 	// kprintf("start heap: 0x%x   dec: %d\n", heap_base, heap_base);
 
@@ -690,6 +692,11 @@ sys_sbrk(int ammount, int* retval){
 			// splx(spl);
 			return EINVAL;
 		}
+		// if (curthread->t_vmspace->heap_size > max_pages){
+		// 	*retval = -1;
+		// 	// splx(spl);
+		// 	return EINVAL;
+		// }
 		kprintf("NEGATIVE\n");
 		ammount = ammount * -1;
 		new_heap_top = heap_top - ammount;
@@ -710,15 +717,15 @@ sys_sbrk(int ammount, int* retval){
 			return EINVAL;
 		}
 
-		vaddr_t addr = heap_top;
-		int i;
-		while (addr != new_heap_top)
-		{
-			kprintf("HERE\n");
-			i = get_index(KVADDR_TO_PADDR(addr));
-			free_from_core(i);
-			addr -= PAGE_SIZE;
-		}
+		// vaddr_t addr = heap_top;
+		// int i;
+		// while (addr != new_heap_top)
+		// {
+		// 	kprintf("HERE\n");
+		// 	i = get_index(KVADDR_TO_PADDR(addr));
+		// 	free_from_core(i);
+		// 	addr -= PAGE_SIZE;
+		// }
 
 		// Decrease the heap size by the number of pages now de-allocated in the heap
 		curthread->t_vmspace->heap_size -= (rounded_amt/PAGE_SIZE);
@@ -727,6 +734,11 @@ sys_sbrk(int ammount, int* retval){
 		// splx(spl);
 		return 0;
 	}
+	// if (curthread->t_vmspace->heap_size > max_pages){
+	// 	*retval = -1;
+	// 	// splx(spl);
+	// 	return ENOMEM;
+	// }
 	// Are there enough free spaces in the coremap to handle the allocation?
 	if (is_there_space(ammount/PAGE_SIZE) == 0){
 		*retval = -1;

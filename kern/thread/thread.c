@@ -183,10 +183,13 @@ thread_destroy(struct thread *thread)
 	if (thread->t_stack) {
 		kfree(thread->t_stack);
 	}
+	if (thread->exitcode){
+		kfree(thread->exitcode);
+	}
 
 	kfree(thread->t_name);
 
-	// sem_destroy(thread->lock);
+	sem_destroy(thread->lock);
 	
 
 

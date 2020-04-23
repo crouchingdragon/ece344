@@ -53,8 +53,8 @@ kill_curthread(u_int32_t epc, unsigned code, u_int32_t vaddr)
 	// kill_proc_map();
 	// splx(spl);
 	// as_destroy(curthread->t_vmspace);
-	sys__exit((int)code);
-	clocksleep(6);
+	// sys__exit((int)code);
+	sys__exit(0);
 	// thread_exit();
 	// panic("I don't know how to handle this\n");
 }
